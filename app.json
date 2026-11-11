@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "Recordar", "slug": "recordar-mobile", "version": "1.0.0",
+    "orientation": "portrait", "userInterfaceStyle": "light",
+    "plugins": ["expo-notifications", "expo-secure-store"],
+    "android": { "package": "com.recordar.mobile", "permissions": ["POST_NOTIFICATIONS"] },
+    "ios": { "supportsTablet": true }
+  }
+}
