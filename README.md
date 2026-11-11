@@ -1,6 +1,6 @@
 # Recordar mobile — agendamento
 
-Parte da Gabi em React Native + Expo SDK 58, adaptada do fluxo oficial de https://github.com/louisemartinss/recordar.frontend.
+React Native + Expo SDK 58, adaptada do fluxo oficial de https://github.com/louisemartinss/recordar.frontend.
 
 ## Executar
 
