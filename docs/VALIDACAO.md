@@ -31,7 +31,7 @@ Os testes de componentes simulam as primitivas nativas. Eles exercitam os handle
 1. Figma Make: as duas mudanças foram aplicadas e testadas na versão 3 do arquivo aberto por Louise (uGF9kF36Ri08GvOyWiogI1). A comparação visual integral entre app e protótipo continua pendente. Evidências e escopo em FIGMA.md.
 2. Chatbot: não existe rota de conversa no backend clonado. A interface está pronta para um contrato proposto, condicionado à implementação e validação do serviço. Resultados de pré-triagem já existentes funcionam no agendamento.
 3. Aparelhos: falta revisão visual e funcional em Android/iPhone, seletores nativos, leitura de voz, notificações e leitores de tela. Não foi gerado APK/IPA.
-4. GitHub: o primeiro envio local falhou. O histórico foi reorganizado em commits por task para publicação pela conexão autorizada da responsável Gabrielle. Consulte COMMITS-POR-TASK.md e o histórico da main para os identificadores remotos.
+4. GitHub: o primeiro envio local falhou. O histórico foi reorganizado em commits por task para publicação pela conta de Louise Martins (louisemartinss). Consulte COMMITS-POR-TASK.md e o histórico da main para os identificadores remotos.
 
 ## Referências inspecionadas
 
