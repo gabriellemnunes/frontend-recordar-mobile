@@ -1,8 +1,28 @@
-import { Image } from "react-native";
-import React, { useState } from "react";
-import { Button, Card, Form, Page, Txt, useAction } from "../components/ui";
-export default function Auth({ api, onLogin, onRoleChange, accessibility }) {
+import { View } from "react-native";
+import BrandLogo from "../components/BrandLogo";
+import React, { useContext, useState } from "react";
+import {
+  Button,
+  Card,
+  Form,
+  Page,
+  Txt,
+  ThemeContext,
+  useAction,
+} from "../components/ui";
+export default function Auth({ api, onLogin, onRoleChange }) {
+  const inheritedTheme = useContext(ThemeContext);
+  const theme = inheritedTheme.light
+    ? {
+        ...inheritedTheme,
+        primary: "#624275",
+        onPrimary: "#ffffff",
+        soft: "#f0eaf3",
+        border: "#c7b8cf",
+      }
+    : inheritedTheme;
   const [page, setPage] = useState("login"),
+    [staffAccess, setStaffAccess] = useState(false),
     [tipo, setTipo] = useState("paciente");
   const a = useAction();
   const credentials = [
@@ -69,73 +89,141 @@ export default function Auth({ api, onLogin, onRoleChange, accessibility }) {
     });
   }
   return (
-    <Page title="Recordar">
-      <Image
-        accessible={false}
-        source={require("../../assets/logo.png")}
-        style={{ width: 84, height: 84, alignSelf: "center" }}
-      />
-      <Txt>Saúde na palma da mão</Txt>
-      <Txt title>
-        {page === "login"
-          ? "Entrar"
-          : page === "cadastro"
-            ? "Criar conta"
-            : "Recuperar senha"}
-      </Txt>
-      {page === "login" && (
-        <Card>
-          <Txt>Acesso de {tipo === "medico" ? "médico" : tipo}</Txt>
-          {["paciente", "medico", "administrador"].map((t) => (
-            <Button
-              secondary
-              key={t}
-              selected={tipo === t}
-              onPress={() =>
-                (() => {
-                  setTipo(t);
-                  onRoleChange?.(t);
-                })()
-              }
-            >
-              Entrar como {t === "medico" ? "médico" : t}
-            </Button>
-          ))}
-        </Card>
-      )}
-      <Form
-        key={`${page}-${tipo}`}
-        fields={fields}
-        onSave={submit}
-        busy={a.busy}
-        saveLabel={
-          page === "login"
-            ? "Entrar"
-            : page === "cadastro"
-              ? "Criar conta"
-              : "Salvar senha"
-        }
-      />
-      {a.feedback}
-      {page === "login" ? (
-        <>
-          {tipo !== "administrador" && (
-            <Button secondary onPress={() => setPage("recuperar")}>
-              Esqueci minha senha
+    <ThemeContext.Provider value={theme}>
+      <Page readingKey={`${page}-${tipo}`}>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: theme.primary,
+            borderRadius: 24,
+            paddingTop: 24,
+            paddingHorizontal: 20,
+            paddingBottom: 54,
+            gap: 8,
+          }}
+        >
+          <BrandLogo size={64} />
+          <Txt
+            title
+            style={{
+              color: theme.onPrimary,
+              fontSize: 28,
+              textAlign: "center",
+            }}
+          >
+            Recordar
+          </Txt>
+          <Txt style={{ color: theme.onPrimary, textAlign: "center" }}>
+            Saúde na palma da mão
+          </Txt>
+        </View>
+        <View
+          style={{
+            backgroundColor: theme.surface,
+            borderRadius: 24,
+            padding: 20,
+            marginTop: -48,
+            gap: 20,
+            shadowColor: theme.text,
+            shadowOpacity: theme.light ? 0.045 : 0.12,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 1,
+          }}
+        >
+          <Txt title>
+            {page === "login"
+              ? "Entrar"
+              : page === "cadastro"
+                ? "Criar conta"
+                : "Recuperar senha"}
+          </Txt>
+          <Txt style={{ color: theme.muted }}>
+            {page === "login"
+              ? "Acesse suas consultas e seus medicamentos."
+              : page === "cadastro"
+                ? "Crie sua conta para organizar seus cuidados de saúde."
+                : "Recupere o acesso à sua conta com segurança."}
+          </Txt>
+          {page === "login" && (
+            <Card style={{ borderWidth: 0, padding: 0 }}>
+              <Txt>Acesso de {tipo === "medico" ? "médico" : tipo}</Txt>
+              {[
+                "paciente",
+                ...(staffAccess ? ["medico", "administrador"] : []),
+              ].map((t) => (
+                <Button
+                  secondary
+                  key={t}
+                  selected={tipo === t}
+                  onPress={() =>
+                    (() => {
+                      setTipo(t);
+                      onRoleChange?.(t);
+                    })()
+                  }
+                >
+                  Entrar como {t === "medico" ? "médico" : t}
+                </Button>
+              ))}
+              {tipo === "administrador" && (
+                <Txt style={{ color: theme.muted }}>
+                  Acesso restrito a administradores autorizados. Se você é
+                  paciente, escolha “Entrar como paciente”.
+                </Txt>
+              )}
+            </Card>
+          )}
+          <Form
+            style={{ borderWidth: 0, padding: 0 }}
+            key={`${page}-${tipo}`}
+            fields={fields}
+            onSave={submit}
+            busy={a.busy}
+            saveLabel={
+              page === "login"
+                ? "Entrar"
+                : page === "cadastro"
+                  ? "Criar conta"
+                  : "Salvar senha"
+            }
+          />
+          {a.feedback}
+          {page === "login" ? (
+            <>
+              {tipo !== "administrador" && (
+                <Button secondary onPress={() => setPage("recuperar")}>
+                  Esqueci minha senha
+                </Button>
+              )}
+              {tipo === "paciente" && (
+                <Button secondary onPress={() => setPage("cadastro")}>
+                  Criar conta
+                </Button>
+              )}
+              <Button
+                icon="lock"
+                secondary
+                onPress={() => {
+                  if (staffAccess) {
+                    setTipo("paciente");
+                    onRoleChange?.("paciente");
+                  }
+                  setStaffAccess(!staffAccess);
+                }}
+              >
+                {staffAccess
+                  ? "Voltar ao acesso de paciente"
+                  : "Área de profissionais e administração"}
+              </Button>
+            </>
+          ) : (
+            <Button secondary onPress={() => setPage("login")}>
+              Voltar ao login
             </Button>
           )}
-          {tipo === "paciente" && (
-            <Button secondary onPress={() => setPage("cadastro")}>
-              Criar conta
-            </Button>
-          )}
-          {accessibility}
-        </>
-      ) : (
-        <Button secondary onPress={() => setPage("login")}>
-          Voltar ao login
-        </Button>
-      )}
-    </Page>
+        </View>
+      </Page>
+    </ThemeContext.Provider>
   );
 }
