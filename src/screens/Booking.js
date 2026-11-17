@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
   BackHandler,
   Platform,
   StyleSheet,
+  View,
 } from "react-native";
 import {
   Page,
@@ -14,7 +15,12 @@ import {
   Txt,
   useOnFocus,
   Confirm,
+  ThemeContext,
 } from "../components/ui";
+import AppointmentCard from "../components/AppointmentCard";
+import BrandLogo from "../components/BrandLogo";
+import BookingProgress from "../components/BookingProgress";
+import { nextDays } from "../patientOverview";
 import { storage } from "../storage";
 import { availablePath } from "../api";
 import {
@@ -27,20 +33,15 @@ import {
 const dateBR = (date) => date?.split("-").reverse().join("/");
 function Card({ c, children }) {
   return (
-    <Surface>
-      <Txt style={s.subtitle}>{c.nome_medico}</Txt>
-      <Txt style={s.text}>{c.nome_especialidade}</Txt>
-      <Txt style={s.text}>{c.nome_clinica}</Txt>
-      <Txt style={s.text}>{c.endereco_clinica}</Txt>
-      <Txt style={s.slot}>
-        {dateBR(c.data_consulta)} às {c.horario_consulta}
-      </Txt>
+    <AppointmentCard appointment={c} available={c.status === "disponivel"}>
       {children}
-    </Surface>
+    </AppointmentCard>
   );
 }
 const triageId = (item) => item?.id || item?._id;
 export default function Booking({ session, api, navigation, route }) {
+  const theme = useContext(ThemeContext);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [pending, setPending] = useState(null);
   const [page, setPage] = useState("agenda");
   const [busy, setBusy] = useState(false);
@@ -257,9 +258,23 @@ export default function Booking({ session, api, navigation, route }) {
   ];
   return (
     <>
-      <Page>
-        <Txt style={s.brand}>recordar</Txt>
-        <Txt style={s.tagline}>Saúde na palma da mão</Txt>
+      <Page readingKey={page}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+          <BrandLogo />
+          <View style={{ flex: 1, gap: 4 }}>
+            <Txt
+              style={{ fontSize: 26, fontWeight: "800", color: theme.primary }}
+            >
+              recordar
+            </Txt>
+            <Txt style={{ fontSize: 16, color: theme.muted }}>
+              Saúde na palma da mão
+            </Txt>
+          </View>
+        </View>
+        {page !== "agenda" && (
+          <BookingProgress page={page} changing={!!changing} />
+        )}
         {
           <>
             {page !== "agenda" && (
@@ -277,58 +292,76 @@ export default function Booking({ session, api, navigation, route }) {
             )}
             {page === "agenda" && (
               <>
-                <Txt style={s.title}>Suas consultas</Txt>
+                <Txt style={s.title}>Sua agenda</Txt>
+                <Txt style={{ color: theme.muted }}>
+                  Consultas, horários e lembretes em um só lugar.
+                </Txt>
                 <Button disabled={busy} onPress={() => run(openBooking)}>
                   Agendar consulta
                 </Button>
-                <Button
-                  secondary
-                  disabled={busy}
-                  onPress={() => run(() => refresh())}
+                <View
+                  style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}
                 >
-                  Atualizar agenda
-                </Button>
-                <Button
-                  secondary
-                  disabled={busy}
-                  onPress={() =>
-                    run(async () => {
-                      if (enabled) {
-                        await storage.set(
-                          `recordar_reminders_${session.user.id}`,
-                          "nao",
-                        );
-                        await clearReminders();
-                        setEnabled(false);
-                      } else {
-                        if (Platform.OS === "web")
-                          throw new Error(
-                            "Os lembretes estão disponíveis no aplicativo do celular.",
-                          );
-                        if (!(await requestReminders()))
-                          throw new Error(
-                            "Permita notificações nos ajustes do aparelho para receber lembretes.",
-                          );
-                        await storage.set(
-                          `recordar_reminders_${session.user.id}`,
-                          "sim",
-                        );
-                        setEnabled(true);
-                        await refresh(true);
+                  <View style={{ flexGrow: 1, flexBasis: 200 }}>
+                    <Button
+                      secondary
+                      disabled={busy}
+                      onPress={() => run(() => refresh())}
+                    >
+                      Atualizar agenda
+                    </Button>
+                  </View>
+                  <View style={{ flexGrow: 1, flexBasis: 200 }}>
+                    <Button
+                      secondary
+                      disabled={busy}
+                      onPress={() =>
+                        run(async () => {
+                          if (enabled) {
+                            await storage.set(
+                              `recordar_reminders_${session.user.id}`,
+                              "nao",
+                            );
+                            await clearReminders();
+                            setEnabled(false);
+                          } else {
+                            if (Platform.OS === "web")
+                              throw new Error(
+                                "Os lembretes estão disponíveis no aplicativo do celular.",
+                              );
+                            if (!(await requestReminders()))
+                              throw new Error(
+                                "Permita notificações nos ajustes do aparelho para receber lembretes.",
+                              );
+                            await storage.set(
+                              `recordar_reminders_${session.user.id}`,
+                              "sim",
+                            );
+                            setEnabled(true);
+                            await refresh(true);
+                          }
+                        })
                       }
-                    })
-                  }
-                >
-                  {enabled ? "Desativar lembretes" : "Ativar lembretes"}
-                </Button>
+                    >
+                      {enabled ? "Desativar lembretes" : "Ativar lembretes"}
+                    </Button>
+                  </View>
+                </View>
                 <Txt style={s.small}>
                   Lembretes neste aparelho: 24 horas e 1 hora antes, quando
                   houver tempo. Horários de Brasília.
                 </Txt>
                 {!appointments.length && (
-                  <Txt style={s.text}>
-                    Você ainda não tem consultas agendadas.
-                  </Txt>
+                  <Surface>
+                    <Txt title>Sua próxima consulta começa aqui</Txt>
+                    <Txt style={s.text}>
+                      Você ainda não tem consultas agendadas.
+                    </Txt>
+                    <Txt style={{ color: theme.muted }}>
+                      Escolha “Agendar consulta” para encontrar um profissional
+                      e um horário.
+                    </Txt>
+                  </Surface>
                 )}
                 {appointments.map((c) => (
                   <Card key={c.id} c={c}>
@@ -371,8 +404,8 @@ export default function Booking({ session, api, navigation, route }) {
               <>
                 <Txt style={s.title}>Como deseja agendar?</Txt>
                 <Txt style={s.text}>
-                  Escolha uma pré-triagem concluída para encontrar as
-                  especialidades recomendadas.
+                  Use uma conversa sobre seus sintomas (pré-triagem) para ver
+                  especialidades recomendadas. Se preferir, agende diretamente.
                 </Txt>
                 <Txt style={s.small}>
                   A IA não substitui a avaliação médica.
@@ -458,6 +491,41 @@ export default function Booking({ session, api, navigation, route }) {
                       ? "Profissionais das especialidades recomendadas pela pré-triagem."
                       : "Todos os horários disponíveis."}
                 </Txt>
+                <Txt style={{ fontWeight: "700" }}>Escolha uma data</Txt>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    paddingVertical: 4,
+                  }}
+                >
+                  {nextDays().map((day) => (
+                    <View
+                      key={day}
+                      style={{
+                        minWidth: 105,
+                        flexGrow: 1,
+                        flexBasis: theme.large ? 140 : 105,
+                      }}
+                    >
+                      <Button
+                        secondary
+                        selected={date === day}
+                        disabled={busy}
+                        accessibilityLabel={`Buscar horários em ${dateBR(day)}`}
+                        onPress={() =>
+                          run(() => {
+                            setDate(day);
+                            return search(triage, changing, day);
+                          })
+                        }
+                      >
+                        {dateBR(day).slice(0, 5)}
+                      </Button>
+                    </View>
+                  ))}
+                </View>
                 <Field
                   label="Data (AAAA-MM-DD, opcional)"
                   value={date}
@@ -471,71 +539,123 @@ export default function Booking({ session, api, navigation, route }) {
                 >
                   Buscar horários
                 </Button>
-                <Field
-                  label="Nome do profissional"
-                  value={name}
-                  onChangeText={setName}
-                />
-                <Txt style={s.label}>Especialidade</Txt>
-                <Button secondary onPress={() => setSpecialty("")}>
-                  Todas as especialidades
-                </Button>
-                {[
-                  ...new Set(
-                    slots.map((c) => c.nome_especialidade).filter(Boolean),
-                  ),
-                ].map((e) => (
-                  <Button secondary key={e} onPress={() => setSpecialty(e)}>
-                    {e}
-                    {specialty === e ? " ✓" : ""}
-                  </Button>
-                ))}
-                <Txt style={s.label}>Clínica</Txt>
-                <Button
-                  secondary
-                  disabled={busy}
-                  onPress={() => {
-                    setClinic("");
-                    setDoctor("");
-                  }}
-                >
-                  Todas as clínicas {clinic === "" ? "✓" : ""}
-                </Button>
-                {clinics.map(([id, name]) => (
+                {!!date && (
                   <Button
                     secondary
-                    key={id}
                     disabled={busy}
-                    onPress={() => {
-                      setClinic(id);
-                      setDoctor("");
-                    }}
+                    onPress={() =>
+                      run(() => {
+                        setDate("");
+                        return search(triage, changing, "");
+                      })
+                    }
                   >
-                    {name} {clinic === id ? "✓" : ""}
+                    Ver todas as datas
                   </Button>
-                ))}
-                {!changing && (
-                  <>
-                    <Txt style={s.label}>Profissional</Txt>
-                    <Button
-                      secondary
-                      disabled={busy}
-                      onPress={() => setDoctor("")}
-                    >
-                      Todos os profissionais {doctor === "" ? "✓" : ""}
-                    </Button>
-                    {doctors.map(([id, name]) => (
+                )}
+                <Surface>
+                  <Button
+                    secondary
+                    selected={filtersOpen}
+                    onPress={() => setFiltersOpen(!filtersOpen)}
+                  >
+                    {filtersOpen
+                      ? "Fechar filtros"
+                      : "Filtrar por profissional ou clínica"}
+                  </Button>
+                  {filtersOpen && (
+                    <View style={{ gap: 12 }}>
+                      <Field
+                        label="Nome do profissional"
+                        value={name}
+                        onChangeText={setName}
+                      />
+                      <Txt style={s.label}>Especialidade</Txt>
                       <Button
                         secondary
-                        key={id}
-                        disabled={busy}
-                        onPress={() => setDoctor(id)}
+                        selected={specialty === ""}
+                        onPress={() => setSpecialty("")}
                       >
-                        {name} {doctor === id ? "✓" : ""}
+                        Todas as especialidades
                       </Button>
-                    ))}
-                  </>
-                )}
+                      {[
+                        ...new Set(
+                          slots
+                            .map((c) => c.nome_especialidade)
+                            .filter(Boolean),
+                        ),
+                      ].map((e) => (
+                        <Button
+                          secondary
+                          key={e}
+                          selected={specialty === e}
+                          onPress={() => setSpecialty(e)}
+                        >
+                          {e}
+                        </Button>
+                      ))}
+                      <Txt style={s.label}>Clínica</Txt>
+                      <Button
+                        secondary
+                        disabled={busy}
+                        selected={clinic === ""}
+                        onPress={() => {
+                          setClinic("");
+                          setDoctor("");
+                        }}
+                      >
+                        Todas as clínicas
+                      </Button>
+                      {clinics.map(([id, name]) => (
+                        <Button
+                          secondary
+                          key={id}
+                          disabled={busy}
+                          selected={clinic === id}
+                          onPress={() => {
+                            setClinic(id);
+                            setDoctor("");
+                          }}
+                        >
+                          {name}
+                        </Button>
+                      ))}
+                      {!changing && (
+                        <>
+                          <Txt style={s.label}>Profissional</Txt>
+                          <Button
+                            secondary
+                            disabled={busy}
+                            selected={doctor === ""}
+                            onPress={() => setDoctor("")}
+                          >
+                            Todos os profissionais
+                          </Button>
+                          {doctors.map(([id, name]) => (
+                            <Button
+                              secondary
+                              key={id}
+                              disabled={busy}
+                              selected={doctor === id}
+                              onPress={() => setDoctor(id)}
+                            >
+                              {name}
+                            </Button>
+                          ))}
+                        </>
+                      )}
+                    </View>
+                  )}
+                </Surface>
+                <Txt
+                  style={{ color: theme.muted, fontSize: 16 }}
+                  accessibilityLiveRegion="polite"
+                >
+                  {visible.length}{" "}
+                  {visible.length === 1
+                    ? "horário encontrado"
+                    : "horários encontrados"}
+                </Txt>
                 {!visible.length && (
                   <Txt style={s.text}>
                     Nenhum horário disponível para estes filtros. Tente outra

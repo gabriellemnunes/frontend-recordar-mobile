@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from "react";
+import ProfileSummary from "../components/ProfileSummary";
+import SectionHeading from "../components/SectionHeading";
+import { chooseProfilePhoto } from "../profilePhoto";
 import {
   Button,
   Card,
@@ -32,7 +35,11 @@ export function Profile({ api, user, updateUser, logout }) {
     });
   }, []);
   const fields = [
-    { name: `nome_${user.tipo}`, label: "Nome completo" },
+    {
+      name: `nome_${user.tipo}`,
+      label: "Nome completo",
+      section: "Dados pessoais",
+    },
     { name: "email", label: "E-mail" },
     { name: "telefone", label: "Telefone" },
     ...(user.tipo === "paciente"
@@ -40,6 +47,7 @@ export function Profile({ api, user, updateUser, logout }) {
           { name: "data_nascimento", label: "Nascimento (AAAA-MM-DD)" },
           {
             name: "condicoes_saude",
+            section: "Informações de saúde",
             label: "Condições de saúde",
             multiline: true,
           },
@@ -72,11 +80,40 @@ export function Profile({ api, user, updateUser, logout }) {
             },
           ]
         : []),
-    { name: "senha", label: "Nova senha (opcional)", secret: true },
+    {
+      name: "senha",
+      label: "Nova senha (opcional)",
+      secret: true,
+      section: "Segurança da conta",
+    },
     { name: "confirmar_senha", label: "Confirmar nova senha", secret: true },
   ];
+  async function savePhoto(photo) {
+    const saved = await api("/users/me", {
+      method: "PUT",
+      body: { foto_perfil: photo },
+    });
+    if (photo && saved.foto_perfil !== photo)
+      throw new Error(
+        "A API precisa ser atualizada para salvar fotos de perfil.",
+      );
+    setLoaded(saved);
+    await updateUser(saved);
+    a.setNotice(photo ? "Foto atualizada." : "Foto removida.");
+  }
   return (
     <Page title="Meu perfil">
+      <ProfileSummary
+        user={loaded || user}
+        busy={a.busy || !loaded}
+        onPhoto={() =>
+          a.run(async () => {
+            const photo = await chooseProfilePhoto();
+            if (photo) await savePhoto(photo);
+          })
+        }
+        onRemovePhoto={() => a.run(() => savePhoto(null))}
+      />
       {a.feedback}
       {loaded && (
         <Form
@@ -91,7 +128,12 @@ export function Profile({ api, user, updateUser, logout }) {
             a.run(async () => {
               if (v.senha && v.senha !== v.confirmar_senha)
                 throw new Error("As senhas não são iguais.");
-              const saved = await api("/users/me", { method: "PUT", body: v });
+              const { foto_perfil, ...details } = v;
+              const saved = await api("/users/me", {
+                method: "PUT",
+                body: details,
+              });
+              setLoaded(saved);
               await updateUser(saved);
               a.setNotice("Perfil atualizado.");
             })
@@ -174,6 +216,14 @@ export function Medications({
   useOnFocus(navigation, () => a.run(load));
   return (
     <Page title={daily ? "Agenda do dia" : "Remédios"}>
+      <Card style={{ borderWidth: 0 }}>
+        <SectionHeading icon={daily ? "calendar" : "pill"}>
+          {daily ? "Seus cuidados de hoje" : "Seus medicamentos"}
+        </SectionHeading>
+        <Txt>
+          Confira os horários e as quantidades registrados nas suas prescrições.
+        </Txt>
+      </Card>
       {daily && (
         <>
           <Field

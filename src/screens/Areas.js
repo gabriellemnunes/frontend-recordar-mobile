@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PatientHome from "./PatientHome";
 import {
   Button,
   Card,
@@ -12,7 +13,9 @@ import {
   useAction,
 } from "../components/ui";
 
-export function Home({ user, navigation }) {
+export function Home({ user, navigation, api }) {
+  if (user.tipo === "paciente")
+    return <PatientHome user={user} navigation={navigation} api={api} />;
   const links =
     user.tipo === "paciente"
       ? [
