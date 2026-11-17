@@ -8,11 +8,24 @@ const runtime = {
   notifications: new Map(),
   listeners: new Set(),
   granted: true,
+  speech: [],
+  speechStops: 0,
 };
 module.exports = runtime;
 global.IS_REACT_ACT_ENVIRONMENT = true;
 const original = Module._load;
 Module._load = function (name, parent, isMain) {
+  if (name === "react-native-svg")
+    return {
+      __esModule: true,
+      default: "Svg",
+      SvgXml: "SvgXml",
+      Path: "Path",
+      Defs: "Defs",
+      LinearGradient: "LinearGradient",
+      Stop: "Stop",
+      Rect: "Rect",
+    };
   if (name === "react-native")
     return {
       View: "View",
@@ -55,7 +68,13 @@ Module._load = function (name, parent, isMain) {
     };
   if (name === "@react-native-community/datetimepicker")
     return "DateTimePicker";
-  if (name === "expo-speech") return { stop: async () => {}, speak: () => {} };
+  if (name === "expo-speech")
+    return {
+      stop: async () => {
+        runtime.speechStops++;
+      },
+      speak: (text, options) => runtime.speech.push({ text, options }),
+    };
   if (name === "expo-notifications")
     return {
       setNotificationHandler() {},

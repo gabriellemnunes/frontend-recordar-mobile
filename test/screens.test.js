@@ -47,8 +47,10 @@ test("login dos três perfis envia tipo correto e abre sessão", async () => {
         },
       }),
     );
-    if (tipo !== "paciente")
+    if (tipo !== "paciente") {
+      await click("Área de profissionais e administração");
       await click(`Entrar como ${tipo === "medico" ? "médico" : tipo}`);
+    }
     await save({ email: " teste@exemplo.com ", senha: "123456" });
     assert.equal(sent.p, "/auth/login");
     assert.equal(sent.body.tipo, tipo);
@@ -540,7 +542,7 @@ test("pré-triagem urgente não oferece uso da recomendação", async () => {
   assert.match(JSON.stringify(root.toJSON()), /urgência/);
   await close();
 });
-test("perfil não inclui opções de acessibilidade e salva dados na API", async () => {
+test("perfil oferece aparência e continua salvando dados na API", async () => {
   let saved;
   const user = { id: "p1", tipo: "paciente", nome_paciente: "Maria" };
   await mount(
@@ -554,11 +556,12 @@ test("perfil não inclui opções de acessibilidade e salva dados na API", async
       logout: async () => {},
     }),
   );
+  await click("Acessibilidade");
   assert.equal(
     root.root
       .findAllByType(Button)
-      .some((b) => ["Modo claro", "Texto maior"].includes(b.props.children)),
-    false,
+      .some((b) => b.props.children === "Modo escuro"),
+    true,
   );
   await save({ nome_paciente: "Maria atualizada" });
   assert.equal(saved.nome_paciente, "Maria atualizada");
@@ -624,5 +627,33 @@ test("admin cadastra clínica usando a mesma interface de edição", async () =>
     calls.find((c) => c.method === "POST").body.nome_clinica,
     "Teste",
   );
+  await close();
+});
+
+test("acesso administrativo fica na área da equipe e volta ao tipo paciente ao fechar", async () => {
+  const calls = [];
+  await mount(
+    React.createElement(Auth, {
+      api: async (p, o) => {
+        calls.push(o.body);
+        return { token: "teste", user: { tipo: o.body.tipo } };
+      },
+      onLogin: async () => {},
+    }),
+  );
+  assert.equal(
+    root.root
+      .findAllByType(Button)
+      .some(
+        (b) => b.props.children?.join?.("") === "Entrar como administrador",
+      ),
+    false,
+  );
+  await click("Área de profissionais e administração");
+  await click("Entrar como administrador");
+  assert.match(JSON.stringify(root.toJSON()), /Acesso restrito/);
+  await click("Voltar ao acesso de paciente");
+  await save({ email: "p@teste.com", senha: "123456" });
+  assert.equal(calls[0].tipo, "paciente");
   await close();
 });
