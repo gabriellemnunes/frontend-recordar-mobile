@@ -3,6 +3,13 @@ const Module = require("node:module"),
   path = require("node:path"),
   babel = require("@babel/core");
 const React = require("react");
+const runtime = {
+  storage: new Map(),
+  notifications: new Map(),
+  listeners: new Set(),
+  granted: true,
+};
+module.exports = runtime;
 global.IS_REACT_ACT_ENVIRONMENT = true;
 const original = Module._load;
 Module._load = function (name, parent, isMain) {
@@ -19,7 +26,16 @@ Module._load = function (name, parent, isMain) {
       ActivityIndicator: "ActivityIndicator",
       StyleSheet: { create: (x) => x, flatten: (x) => x },
       Platform: { OS: "android" },
-      AppState: { addEventListener: () => ({ remove() {} }) },
+      AppState: {
+        addEventListener: (event, listener) => {
+          runtime.listeners.add(listener);
+          return {
+            remove() {
+              runtime.listeners.delete(listener);
+            },
+          };
+        },
+      },
       BackHandler: { addEventListener: () => ({ remove() {} }) },
     };
   if (name === "react-native-safe-area-context")
@@ -29,9 +45,13 @@ Module._load = function (name, parent, isMain) {
     };
   if (name === "@react-native-async-storage/async-storage")
     return {
-      getItem: async () => null,
-      setItem: async () => {},
-      removeItem: async () => {},
+      getItem: async (key) => runtime.storage.get(key) || null,
+      setItem: async (key, value) => {
+        runtime.storage.set(key, value);
+      },
+      removeItem: async (key) => {
+        runtime.storage.delete(key);
+      },
     };
   if (name === "@react-native-community/datetimepicker")
     return "DateTimePicker";
@@ -39,7 +59,20 @@ Module._load = function (name, parent, isMain) {
   if (name === "expo-notifications")
     return {
       setNotificationHandler() {},
-      getAllScheduledNotificationsAsync: async () => [],
+      getAllScheduledNotificationsAsync: async () =>
+        [...runtime.notifications.keys()].map((identifier) => ({ identifier })),
+      cancelScheduledNotificationAsync: async (id) => {
+        runtime.notifications.delete(id);
+      },
+      getPermissionsAsync: async () => ({ granted: runtime.granted }),
+      requestPermissionsAsync: async () => ({ granted: runtime.granted }),
+      setNotificationChannelAsync: async () => {},
+      scheduleNotificationAsync: async (item) => {
+        runtime.notifications.set(item.identifier, item);
+        return item.identifier;
+      },
+      SchedulableTriggerInputTypes: { DATE: "date" },
+      AndroidImportance: { HIGH: 4 },
     };
   if (name === "expo-secure-store")
     return {
