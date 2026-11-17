@@ -23,6 +23,7 @@ import {
   Txt,
 } from "./src/components/ui";
 import Accessibility from "./src/components/Accessibility";
+import SessionReminders from "./src/components/SessionReminders";
 import Auth from "./src/screens/Auth";
 import Booking from "./src/screens/Booking";
 import Chat from "./src/screens/Chat";
@@ -211,6 +212,7 @@ export default function App() {
           </>
         ) : (
           <Services.Provider value={{ session, api, logout, updateUser }}>
+            <SessionReminders session={session} api={api} />
             <NavigationContainer
               theme={{
                 ...DefaultTheme,

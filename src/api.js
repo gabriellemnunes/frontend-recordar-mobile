@@ -41,6 +41,7 @@ function createApi(baseUrl, token, onUnauthorized = () => {}, fetcher = fetch) {
 }
 function availablePath({
   triageId,
+  appointmentId,
   doctorId,
   clinicId,
   specialtyId,
@@ -48,6 +49,7 @@ function availablePath({
 } = {}) {
   const entries = Object.entries({
     id_pre_triagem: triageId,
+    id_consulta_atual: appointmentId,
     medico: doctorId,
     clinica: clinicId,
     especialidade: specialtyId,

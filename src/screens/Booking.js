@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   AppState,
   BackHandler,
+  Platform,
   StyleSheet,
 } from "react-native";
 import {
@@ -16,7 +17,12 @@ import {
 } from "../components/ui";
 import { storage } from "../storage";
 import { availablePath } from "../api";
-import { clearReminders, requestReminders, syncReminders } from "../reminders";
+import {
+  clearReminders,
+  reminderVersion,
+  requestReminders,
+  syncReminders,
+} from "../reminders";
 
 const dateBR = (date) => date?.split("-").reverse().join("/");
 function Card({ c, children }) {
@@ -33,7 +39,8 @@ function Card({ c, children }) {
     </Surface>
   );
 }
-export default function Booking({ session, api, navigation }) {
+const triageId = (item) => item?.id || item?._id;
+export default function Booking({ session, api, navigation, route }) {
   const [pending, setPending] = useState(null);
   const [page, setPage] = useState("agenda");
   const [busy, setBusy] = useState(false);
@@ -56,6 +63,14 @@ export default function Booking({ session, api, navigation }) {
   const [enabled, setEnabled] = useState(false);
   const lock = useRef(false);
   const searchRevision = useRef(0);
+  const active = useRef(true);
+  const handledTriageRoute = useRef(null);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
   async function run(action) {
     if (lock.current) return;
     lock.current = true;
@@ -72,10 +87,12 @@ export default function Booking({ session, api, navigation }) {
     }
   }
   async function refresh(remindersEnabled = enabled) {
+    const revision = reminderVersion();
     const list = await api("/consultas");
+    if (!active.current) return list;
     setAppointments(list);
     if (remindersEnabled)
-      await syncReminders(list).catch(() =>
+      await syncReminders(list, revision).catch(() =>
         setNotice(
           "Consultas atualizadas. Não foi possível atualizar os lembretes neste aparelho.",
         ),
@@ -96,6 +113,32 @@ export default function Booking({ session, api, navigation }) {
   }, [session?.user?.id, enabled]);
   useOnFocus(navigation, () => run(() => refresh()));
   useEffect(() => {
+    const id = route?.params?.id_pre_triagem;
+    if (!id) {
+      handledTriageRoute.current = null;
+      return;
+    }
+    if (lock.current || handledTriageRoute.current === id) return;
+    handledTriageRoute.current = id;
+    run(async () => {
+      // O resultado do chatbot só fornece o ID. A API confirma dono, conclusão
+      // e especialidades; o aplicativo nunca fabrica uma recomendação.
+      const result = await api(`/pre-triagens/${encodeURIComponent(id)}`);
+      if (result.concluida !== true)
+        throw new Error("Esta pré-triagem ainda não foi concluída.");
+      setChanging(null);
+      setSelected(null);
+      setTriage(null);
+      setSlots([]);
+      setDate("");
+      setSpecialty("");
+      setName("");
+      setTriages([result]);
+      setPage("triagem");
+    });
+    navigation?.setParams?.({ id_pre_triagem: undefined });
+  }, [route?.params?.id_pre_triagem, busy]);
+  useEffect(() => {
     if (page === "agenda") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       setPage(page === "confirmar" ? "horarios" : "agenda");
@@ -107,7 +150,8 @@ export default function Booking({ session, api, navigation }) {
     const revision = ++searchRevision.current;
     const list = await api(
       availablePath({
-        triageId: t?._id,
+        triageId: triageId(t),
+        appointmentId: current?.id,
         doctorId: current?.id_medico,
         date: searchDate,
       }),
@@ -146,7 +190,7 @@ export default function Booking({ session, api, navigation }) {
         : await api(`/consultas/${c.id}/agendar`, {
             method: "PUT",
             body: {
-              id_pre_triagem: triage?._id,
+              id_pre_triagem: triageId(triage),
               queixa_principal: reason,
               sintomas: symptoms,
               inicio_sintomas: onset,
@@ -156,10 +200,16 @@ export default function Booking({ session, api, navigation }) {
       if (e.status === 409) {
         setSelected(null);
         setPage("horarios");
-        await search();
+        await search().catch(() => setSlots([]));
+      } else if (e.status === 404 && changing) {
+        setChanging(null);
+        setSelected(null);
+        setPage("agenda");
+        await refresh().catch(() => {});
       }
       throw e;
     }
+    if (!active.current) return;
     setPage("agenda");
     setSelected(null);
     setChanging(null);
@@ -244,13 +294,17 @@ export default function Booking({ session, api, navigation }) {
                   onPress={() =>
                     run(async () => {
                       if (enabled) {
-                        await clearReminders();
                         await storage.set(
                           `recordar_reminders_${session.user.id}`,
                           "nao",
                         );
+                        await clearReminders();
                         setEnabled(false);
                       } else {
+                        if (Platform.OS === "web")
+                          throw new Error(
+                            "Os lembretes estão disponíveis no aplicativo do celular.",
+                          );
                         if (!(await requestReminders()))
                           throw new Error(
                             "Permita notificações nos ajustes do aparelho para receber lembretes.",
@@ -290,6 +344,10 @@ export default function Booking({ session, api, navigation }) {
                         run(async () => {
                           setChanging(c);
                           setTriage(null);
+                          setSpecialty("");
+                          setName("");
+                          setClinic("");
+                          setDoctor("");
                           setDate("");
                           await search(null, c, "");
                           setPage("horarios");
@@ -326,11 +384,20 @@ export default function Booking({ session, api, navigation }) {
                   </Txt>
                 )}
                 {triages.map((t) => (
-                  <Surface key={t._id}>
+                  <Surface key={triageId(t)}>
                     <Txt style={s.subtitle}>
                       Pré-triagem de {dateBR(t.createdAt.slice(0, 10))}
                     </Txt>
                     <Txt style={s.text}>{t.resumo}</Txt>
+                    {!!t.duracao && <Txt>Duração informada: {t.duracao}</Txt>}
+                    {t.intensidade != null && (
+                      <Txt>Intensidade informada: {t.intensidade}/10</Txt>
+                    )}
+                    {(t.alertas || []).map((alerta, index) => (
+                      <Txt key={index} accessibilityRole="alert">
+                        {alerta}
+                      </Txt>
+                    ))}
                     <Txt style={s.text}>
                       {t.especialidades
                         .map((e) => e.nome_especialidade)
@@ -344,11 +411,13 @@ export default function Booking({ session, api, navigation }) {
                       </Txt>
                     ) : (
                       <Button
-                        disabled={busy}
+                        disabled={busy || t.concluida === false || !triageId(t)}
                         onPress={() =>
                           run(async () => {
                             setTriage(t);
                             setReason(t.resumo);
+                            setSymptoms((t.sintomas || []).join(", "));
+                            setOnset("");
                             await search(t, null);
                             setPage("horarios");
                           })
@@ -566,10 +635,36 @@ export default function Booking({ session, api, navigation }) {
         busy={busy}
         onConfirm={() =>
           run(async () => {
-            await api(`/consultas/${pending.id}/cancelar`, { method: "PUT" });
+            const cancelled = pending;
+            try {
+              await api(`/consultas/${cancelled.id}/cancelar`, {
+                method: "PUT",
+              });
+            } catch (e) {
+              if (e.status === 404 || e.status === 409) {
+                setPending(null);
+                await refresh().catch(() => {});
+              }
+              throw e;
+            }
+            if (!active.current) return;
             setPending(null);
-            await refresh();
+            const updated = appointments.filter(
+              (item) => item.id !== cancelled.id,
+            );
+            setAppointments(updated);
             setNotice("Consulta cancelada.");
+            if (enabled)
+              await syncReminders(updated).catch(() =>
+                setNotice(
+                  "Consulta cancelada. Não foi possível atualizar os lembretes neste aparelho.",
+                ),
+              );
+            await refresh().catch(() =>
+              setNotice(
+                "Consulta cancelada. Atualize a agenda quando a conexão voltar.",
+              ),
+            );
           })
         }
       />

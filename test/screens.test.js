@@ -203,7 +203,7 @@ test("chat sem serviço configurado bloqueia envio e oferece agendamento", async
       api: () => {
         throw Error("Não deve chamar API");
       },
-      navigation: { navigate: (r) => routes.push(r) },
+      navigation: { navigate: (...args) => routes.push(args) },
     }),
   );
   const send = root.root
@@ -211,7 +211,12 @@ test("chat sem serviço configurado bloqueia envio e oferece agendamento", async
     .find((b) => b.props.children === "Enviar mensagem");
   assert.equal(send.props.disabled, true);
   await click("Abrir agendamento");
-  assert.deepEqual(routes, ["Agendamento"]);
+  assert.deepEqual(routes, [
+    [
+      "Recordar",
+      { screen: "Agendamento", params: { id_pre_triagem: undefined } },
+    ],
+  ]);
   await close();
 });
 
@@ -220,6 +225,7 @@ const { Profile, CreateConsultation } = require("../src/screens/Care");
 const Accessibility = require("../src/components/Accessibility").default;
 const { Field } = require("../src/components/ui");
 const session = { token: "teste", user: { id: "p1", tipo: "paciente" } };
+const runtime = require("./render-setup.cjs");
 async function fill(label, value) {
   const field = root.root
     .findAllByType(Field)
@@ -227,6 +233,225 @@ async function fill(label, value) {
   assert.ok(field, `Campo ausente: ${label}`);
   await act(async () => field.props.onChangeText(value));
 }
+
+test("recomendacao com id do backend filtra e vincula a consulta", async () => {
+  const calls = [];
+  const t = {
+    id: "t1",
+    createdAt: "2026-11-17",
+    concluida: true,
+    urgencia: false,
+    resumo: "Resumo ficticio",
+    sintomas: ["Sintoma ficticio"],
+    duracao: "dois dias",
+    intensidade: 3,
+    especialidades: [{ id: "e1", nome_especialidade: "Clinica medica" }],
+    alertas: ["Alerta do servico"],
+  };
+  const slot = {
+    id: "c1",
+    id_medico: "m1",
+    id_clinica: "cl1",
+    nome_medico: "Ana",
+    data_consulta: "2099-12-09",
+    horario_consulta: "09:00",
+  };
+  let saved;
+  const api = async (p, o = {}) => {
+    calls.push({ p, ...o });
+    if (p === "/pre-triagens") return [t];
+    if (p.startsWith("/consultas/disponiveis")) return [slot];
+    if (o.method === "PUT") {
+      saved = { ...slot, status: "agendada", id_pre_triagem: t.id };
+      return saved;
+    }
+    return saved ? [saved] : [];
+  };
+  await mount(React.createElement(Booking, { api, session }));
+  await click("Agendar consulta");
+  await click("Usar recomendação");
+  await click("Escolher horário");
+  await click("Confirmar agendamento");
+  assert.ok(
+    calls.some((c) => c.p === "/consultas/disponiveis?id_pre_triagem=t1"),
+  );
+  const sent = calls.find((c) => c.p === "/consultas/c1/agendar");
+  assert.equal(sent.body.id_pre_triagem, "t1");
+  assert.equal(sent.body.sintomas, "Sintoma ficticio");
+  await close();
+});
+
+test("id recebido do chatbot e carregado pela API depois da agenda inicial", async () => {
+  const calls = [],
+    params = [];
+  await mount(
+    React.createElement(Booking, {
+      session,
+      route: { params: { id_pre_triagem: "t1" } },
+      navigation: { setParams: (p) => params.push(p) },
+      api: async (p) => {
+        calls.push(p);
+        if (p === "/pre-triagens/t1")
+          return {
+            id: "t1",
+            concluida: true,
+            urgencia: false,
+            resumo: "Resumo",
+            createdAt: "2026-11-17",
+            especialidades: [],
+          };
+        return [];
+      },
+    }),
+  );
+  assert.equal(calls.filter((p) => p === "/pre-triagens/t1").length, 1);
+  assert.match(JSON.stringify(root.toJSON()), /Como deseja agendar/);
+  assert.equal(params.length, 1);
+  await close();
+});
+
+test("cancelamento confirmado atualiza agenda e lembretes mesmo sem conexao ao recarregar", async () => {
+  runtime.storage.set("recordar_reminders_p1", "sim");
+  runtime.notifications.clear();
+  let cancelled = false;
+  const slot = {
+    id: "c1",
+    nome_medico: "Ana",
+    status: "agendada",
+    data_consulta: "2099-12-09",
+    horario_consulta: "09:00",
+  };
+  try {
+    await mount(
+      React.createElement(Booking, {
+        session,
+        api: async (p, o = {}) => {
+          if (o.method === "PUT") {
+            cancelled = true;
+            return { message: "Cancelada" };
+          }
+          if (cancelled) throw Error("Sem conexao");
+          return [slot];
+        },
+      }),
+    );
+    assert.equal(runtime.notifications.size, 2);
+    await click("Cancelar consulta");
+    await click("Confirmar");
+    assert.match(JSON.stringify(root.toJSON()), /Consulta cancelada/);
+    assert.equal(runtime.notifications.size, 0);
+    assert.equal(
+      root.root
+        .findAllByType(Button)
+        .some((b) => b.props.children === "Cancelar consulta"),
+      false,
+    );
+    await close();
+  } finally {
+    runtime.storage.clear();
+    runtime.notifications.clear();
+  }
+});
+
+test("troca informa consulta atual e conserva pre-triagem no resultado", async () => {
+  const calls = [];
+  const old = {
+    id: "c1",
+    id_medico: "m1",
+    nome_medico: "Ana",
+    status: "agendada",
+    id_pre_triagem: "t1",
+    data_consulta: "2099-12-09",
+    horario_consulta: "09:00",
+  };
+  const next = {
+    ...old,
+    id: "c2",
+    horario_consulta: "10:00",
+    status: "disponivel",
+  };
+  let current = old;
+  await mount(
+    React.createElement(Booking, {
+      session,
+      api: async (p, o = {}) => {
+        calls.push({ p, ...o });
+        if (p.startsWith("/consultas/disponiveis")) return [next];
+        if (o.method === "PUT") {
+          current = { ...next, status: "agendada" };
+          return current;
+        }
+        return [current];
+      },
+    }),
+  );
+  await click("Trocar horário");
+  await click("Escolher horário");
+  await click("Confirmar novo horário");
+  assert.ok(calls.some((c) => c.p.includes("id_consulta_atual=c1")));
+  assert.equal(
+    calls.find((c) => c.p === "/consultas/c1/trocar").body.id_nova,
+    "c2",
+  );
+  assert.match(JSON.stringify(root.toJSON()), /Consulta confirmada/);
+  await close();
+});
+
+test("chat concluido encaminha id persistido para a aba dentro da Stack", async () => {
+  process.env.EXPO_PUBLIC_CHAT_PATH = "/chat";
+  const routes = [];
+  try {
+    await mount(
+      React.createElement(Chat, {
+        api: async () => ({
+          resposta: "Conversa concluida",
+          id_conversa: "v1",
+          id_pre_triagem: "t1",
+        }),
+        navigation: { navigate: (...args) => routes.push(args) },
+      }),
+    );
+    await fill("Sua mensagem", "Mensagem ficticia");
+    await click("Enviar mensagem");
+    await click("Agendar com esta pré-triagem");
+    assert.deepEqual(routes, [
+      ["Recordar", { screen: "Agendamento", params: { id_pre_triagem: "t1" } }],
+    ]);
+    await close();
+  } finally {
+    delete process.env.EXPO_PUBLIC_CHAT_PATH;
+  }
+});
+
+test("retorno ao aplicativo remove lembretes de consulta realizada sem abrir agendamento", async () => {
+  const SessionReminders =
+    require("../src/components/SessionReminders").default;
+  runtime.storage.set("recordar_reminders_p1", "sim");
+  runtime.notifications.clear();
+  let list = [
+    {
+      id: "c1",
+      status: "agendada",
+      data_consulta: "2099-12-09",
+      horario_consulta: "09:00",
+    },
+  ];
+  try {
+    await mount(
+      React.createElement(SessionReminders, { session, api: async () => list }),
+    );
+    assert.equal(runtime.notifications.size, 2);
+    list = [];
+    await act(async () => {
+      for (const listener of runtime.listeners) listener("active");
+    });
+    assert.equal(runtime.notifications.size, 0);
+    await close();
+  } finally {
+    runtime.storage.clear();
+    runtime.notifications.clear();
+  }
+});
 test("agendamento direto confirma motivo e sintomas e volta à agenda", async () => {
   let saved = null;
   const calls = [];

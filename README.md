@@ -40,7 +40,7 @@ npm run check:format
 npm run export
 ```
 
-Integração HTTP com a cópia do backend em `../backend`:
+Integração HTTP com a cópia do backend em `../backend-recordar-mobile`:
 
 ```powershell
 npm run test:integration
@@ -76,5 +76,7 @@ As duas mudanças foram aplicadas e testadas na versão 3 do arquivo Figma que L
 O primeiro envio por Git local falhou por bloqueio do gerenciador de credenciais. O histórico foi reorganizado por task para envio pelo conector GitHub autorizado. Consulte o histórico da main e `docs/COMMITS-POR-TASK.md` para os commits publicados. Os hashes do pacote local anterior são diferentes dos commits reorganizados.
 
 ## Estrutura
+
+As correções de integração do agendamento com os commits de Bia e Louise estão descritas em [docs/GABI-INTEGRACAO.md](docs/GABI-INTEGRACAO.md), incluindo o contrato `id` da pré-triagem, o encaminhamento do chatbot e a sincronização dos lembretes fora da aba de agendamento.
 
 `App.js`: sessão e navegação por papel. `src/components`: controles, temas e acessibilidade. `src/screens`: autenticação e áreas funcionais. `src/api.js`: HTTP autenticado e erros. `src/reminders.js`: notificações locais existentes. `test`: testes de contrato e componentes. `scripts/integration.cjs`: integração com MongoDB descartável.
