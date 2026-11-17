@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { ActivityIndicator, StatusBar } from "react-native";
+import { ActivityIndicator, AppState, StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -21,8 +21,9 @@ import {
   Card,
   Page,
   Txt,
+  stopReading,
 } from "./src/components/ui";
-import Accessibility from "./src/components/Accessibility";
+import Icon from "./src/components/Icon";
 import SessionReminders from "./src/components/SessionReminders";
 import Auth from "./src/screens/Auth";
 import Booking from "./src/screens/Booking";
@@ -68,23 +69,73 @@ function MainTabs() {
   const theme = useContext(ThemeContext);
   return (
     <Tabs.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.muted,
         tabBarStyle: {
-          minHeight: 72,
+          minHeight: theme.large ? 104 : 80,
           backgroundColor: theme.surface,
           borderColor: theme.border,
+          paddingTop: 8,
+          paddingBottom: 8,
         },
-        tabBarLabelStyle: { fontSize: 15 },
-        tabBarIcon: () => null,
-      }}
+        tabBarLabelPosition: "below-icon",
+        tabBarItemStyle: {
+          alignItems: "center",
+          justifyContent: "center",
+          paddingVertical: 4,
+        },
+        tabBarIconStyle: { marginBottom: 4, alignSelf: "center" },
+        tabBarLabelStyle: {
+          fontSize: theme.large ? 20 : 16,
+          lineHeight: theme.large ? 28 : 24,
+          fontWeight: "600",
+        },
+        tabBarAllowFontScaling: true,
+        tabBarLabel: ({ children, color }) => (
+          <Txt
+            style={{
+              fontSize: 16,
+              lineHeight: 24,
+              color,
+              textAlign: "center",
+              maxWidth: "100%",
+            }}
+          >
+            {children}
+          </Txt>
+        ),
+        tabBarIcon: ({ color }) => (
+          <Icon
+            name={
+              {
+                Início: "home",
+                Agendamento: "calendar",
+                Consultas: "calendar",
+                Remédios: "pill",
+                Perfil: "user",
+                Pacientes: "people",
+                Usuários: "people",
+              }[route.name]
+            }
+            color={color}
+            size={24}
+          />
+        ),
+      })}
     >
       <Tabs.Screen name="Início" component={HomeScreen} />
       {role === "paciente" ? (
         <>
-          <Tabs.Screen name="Agendamento" component={BookingScreen} />
+          <Tabs.Screen
+            name="Agendamento"
+            component={BookingScreen}
+            options={{
+              title: "Agenda",
+              tabBarAccessibilityLabel: "Agenda de consultas",
+            }}
+          />
           <Tabs.Screen name="Remédios" component={MedsScreen} />
         </>
       ) : role === "medico" ? (
@@ -103,6 +154,12 @@ function MainTabs() {
   );
 }
 export default function App() {
+  useEffect(() => {
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state !== "active") stopReading().catch(() => {});
+    });
+    return () => listener.remove();
+  }, []);
   const [session, setSession] = useState(null),
     [ready, setReady] = useState(false),
     [prefs, setPrefs] = useState({ large: false, light: false }),
@@ -169,18 +226,22 @@ export default function App() {
   const theme = {
     ...prefs,
     ...palette(session?.user.tipo || accessRole, prefs.light),
+    setAppearance: async (light) => {
+      const next = { ...prefs, light };
+      await storage.set("recordar_accessibility", JSON.stringify(next));
+      setPrefs(next);
+    },
+    setTextSize: async (large) => {
+      const next = { ...prefs, large };
+      await storage.set("recordar_accessibility", JSON.stringify(next));
+      setPrefs(next);
+    },
   };
   return (
     <SafeAreaProvider>
       <ThemeContext.Provider value={theme}>
         <StatusBar
-          barStyle={
-            prefs.light ||
-            session?.user.tipo === "administrador" ||
-            accessRole === "administrador"
-              ? "dark-content"
-              : "light-content"
-          }
+          barStyle={prefs.light ? "dark-content" : "light-content"}
           backgroundColor={theme.background}
         />
         {!ready ? (
@@ -189,23 +250,7 @@ export default function App() {
           </Page>
         ) : !session ? (
           <>
-            <Auth
-              api={api}
-              onLogin={login}
-              onRoleChange={setAccessRole}
-              accessibility={
-                <Accessibility
-                  prefs={prefs}
-                  onChange={async (next) => {
-                    await storage.set(
-                      "recordar_accessibility",
-                      JSON.stringify(next),
-                    );
-                    setPrefs(next);
-                  }}
-                />
-              }
-            />
+            <Auth api={api} onLogin={login} onRoleChange={setAccessRole} />
             {!!startupError && (
               <Txt accessibilityRole="alert">{startupError}</Txt>
             )}
@@ -214,6 +259,7 @@ export default function App() {
           <Services.Provider value={{ session, api, logout, updateUser }}>
             <SessionReminders session={session} api={api} />
             <NavigationContainer
+              onStateChange={() => stopReading().catch(() => {})}
               theme={{
                 ...DefaultTheme,
                 colors: {
@@ -232,7 +278,11 @@ export default function App() {
                   headerBackTitle: "Voltar",
                 }}
               >
-                <Stack.Screen name="Recordar" component={MainTabs} />
+                <Stack.Screen
+                  name="Recordar"
+                  component={MainTabs}
+                  options={{ headerShown: false }}
+                />
                 {[
                   ["Dia", "day"],
                   ["Criar consulta", "create"],

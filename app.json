@@ -6,19 +6,26 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Escolha uma foto para o seu perfil no Recordar.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-notifications",
       "expo-secure-store",
       "@react-native-community/datetimepicker"
     ],
     "android": {
       "package": "com.recordar.mobile",
-      "permissions": [
-        "POST_NOTIFICATIONS"
-      ]
+      "permissions": ["POST_NOTIFICATIONS"]
     },
     "ios": {
       "supportsTablet": true
     },
-    "icon": "./assets/icon.png"
+    "icon": "./assets/recordar-icon.png",
+    "web": { "favicon": "./assets/recordar-icon.png" }
   }
 }
