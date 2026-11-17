@@ -4,17 +4,22 @@ const path = require("node:path"),
   fs = require("node:fs"),
   os = require("node:os"),
   assert = require("node:assert/strict");
-const backend = path.resolve(process.env.RECORDAR_BACKEND_DIR || "../backend");
+const backend = path.resolve(
+  process.env.RECORDAR_BACKEND_DIR || "../backend-recordar-mobile",
+);
 const dependency = (name) =>
   require(require.resolve(name, { paths: [backend] }));
 const mongoose = dependency("mongoose"),
   { MongoMemoryReplSet } = dependency("mongodb-memory-server"),
   bcrypt = dependency("bcryptjs");
 const { createApi, availablePath } = require("../src/api");
+const { reminderPlan } = require("../src/reminderPlan");
 process.env.JWT_SECRET = require("node:crypto").randomBytes(32).toString("hex");
+process.env.AI_SERVICE_TOKEN = require("node:crypto")
+  .randomBytes(32)
+  .toString("hex");
 const app = require(path.join(backend, "src/server")),
-  User = require(path.join(backend, "src/models/User")),
-  PreTriage = require(path.join(backend, "src/models/PreTriage"));
+  User = require(path.join(backend, "src/models/User"));
 let repl,
   server,
   count = 0;
@@ -122,13 +127,29 @@ async function main() {
     },
   });
   check(created.consultas.length === 3, "médico cria múltiplos horários");
-  const triage = await PreTriage.create({
-    paciente: patient.user.id,
-    especialidades: [specialty.id],
-    resumo: "Resultado fictício",
-    urgencia: false,
-    concluida: true,
+  const triageResponse = await fetch(base + "/pre-triagens", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-ai-service-token": process.env.AI_SERVICE_TOKEN,
+    },
+    body: JSON.stringify({
+      paciente: patient.user.id,
+      especialidades: [specialty.id],
+      resumo: "Resultado fictício",
+      urgencia: false,
+      concluida: true,
+      sintomas: ["Sintoma fictício"],
+      duracao: "dois dias",
+      intensidade: 3,
+    }),
   });
+  assert.equal(triageResponse.status, 201);
+  const triage = await triageResponse.json();
+  check(
+    !!triage.id && !triage._id,
+    "contrato real da rota de pré-triagem usa id",
+  );
   check(
     (await patient.api("/pre-triagens")).length === 1,
     "pré-triagem concluída disponível para paciente",
@@ -148,6 +169,17 @@ async function main() {
   check(
     booked.status === "agendada" && booked.id_pre_triagem === triage.id,
     "agendamento com pré-triagem e anamnese",
+  );
+  const replacements = await patient.api(
+    availablePath({ appointmentId: booked.id }),
+  );
+  check(
+    replacements.length === 2,
+    "busca de reagendamento permite horários no mesmo dia",
+  );
+  check(
+    (await patient.api(availablePath())).length === 0,
+    "busca comum oculta conflitos com consulta já marcada",
   );
   const medication = await medic.api("/remedios", {
     method: "POST",
@@ -207,6 +239,10 @@ async function main() {
   );
   await medic.api(`/consultas/${booked.id}/aviso-visto`, { method: "PUT" });
   await medic.api(`/consultas/${booked.id}/realizada`, { method: "PUT" });
+  check(
+    reminderPlan(await patient.api("/consultas")).length === 0,
+    "consulta realizada não gera lembretes na sincronização",
+  );
   check(
     (await patient.api("/consultas/historico")).some((c) => c.id === booked.id),
     "consulta realizada no histórico",
