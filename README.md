@@ -165,10 +165,4 @@ frontend-recordar-mobile/
 - [Histórico de commits por tarefa](docs/COMMITS-POR-TASK.md)
 - [Backend](https://github.com/gabriellemnunes/backend-recordar-mobile)
 
-## Equipe
-
-Projeto desenvolvido colaborativamente. Consulte os [contribuidores](https://github.com/gabriellemnunes/frontend-recordar-mobile/graphs/contributors) e o histórico de commits para acompanhar as contribuições.
-
----
-
 **Recordar** — tecnologia para apoiar a organização do cuidado e o acesso a serviços de saúde.
