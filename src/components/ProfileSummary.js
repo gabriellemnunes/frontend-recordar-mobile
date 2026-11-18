@@ -49,11 +49,6 @@ export default function ProfileSummary({ user, busy, onPhoto, onRemovePhoto }) {
                 ? "Administrador"
                 : "Paciente"}
           </Txt>
-          {!!user.demonstracao && (
-            <Txt style={{ color: t.muted, fontSize: 16 }}>
-              Perfil fictício de demonstração
-            </Txt>
-          )}
         </View>
       </View>
       {user.tipo === "paciente" && (

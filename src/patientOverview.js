@@ -32,7 +32,16 @@ function patientOverview(
     upcoming,
     next: upcoming[0] || null,
     medications: todayMedications,
-    remaining: todayMedications.filter((m) => !m.tomado_hoje).length,
+    remaining: todayMedications.reduce(
+      (sum, m) =>
+        sum +
+        Math.max(
+          0,
+          (m.tomadas_por_dia || 1) -
+            (m.tomadas_hoje ?? (m.tomado_hoje ? 1 : 0)),
+        ),
+      0,
+    ),
   };
 }
 function nextDays(now = new Date()) {

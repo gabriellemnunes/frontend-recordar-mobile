@@ -193,7 +193,9 @@ test("paciente registra e desfaz tomada no contrato da API", async () => {
   );
   await click("Marcar como tomado hoje");
   assert.equal(calls.find((c) => c.method === "PUT").body.tomado, true);
-  await click("Desmarcar tomada de hoje");
+  await click("Marquei por engano");
+  assert.equal(calls.filter((c) => c.method === "PUT").length, 1);
+  await click("Confirmar");
   assert.equal(calls.filter((c) => c.method === "PUT")[1].body.tomado, false);
   await close();
 });

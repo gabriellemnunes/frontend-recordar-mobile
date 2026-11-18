@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from "react";
 import ProfileSummary from "../components/ProfileSummary";
+import MedicationTakenBadge from "../components/MedicationTakenBadge";
+import MedicationCounts from "../components/MedicationCounts";
 import SectionHeading from "../components/SectionHeading";
 import { chooseProfilePhoto } from "../profilePhoto";
+import {
+  syncMedicationReminders,
+  requestMedicationReminders,
+} from "../medicationReminders";
 import {
   Button,
   Card,
@@ -179,6 +185,16 @@ const medFields = [
     placeholder: "1 comprimido",
   },
   { name: "data_inicio", label: "Data inicial (AAAA-MM-DD)" },
+  {
+    name: "tomadas_por_dia",
+    label: "Máximo de tomadas por dia",
+    placeholder: "Conforme a prescrição",
+  },
+  {
+    name: "intervalo_minimo_minutos",
+    label: "Intervalo mínimo em minutos",
+    placeholder: "Definido pelo médico",
+  },
   { name: "data_fim", label: "Data final (AAAA-MM-DD)" },
 ];
 export function Medications({
@@ -193,6 +209,8 @@ export function Medications({
     [list, setList] = useState([]),
     [edit, setEdit] = useState(null),
     [pending, setPending] = useState(null),
+    [correction, setCorrection] = useState(null),
+    [clock, setClock] = useState(Date.now()),
     [day, setDay] = useState(today()),
     [draftDay, setDraftDay] = useState(today()),
     [consultas, setConsultas] = useState([]);
@@ -204,7 +222,11 @@ export function Medications({
         ? `?dia=${encodeURIComponent(day)}`
         : "";
   async function load() {
-    setList(await api("/remedios" + query));
+    const meds = await api("/remedios" + query);
+    setList(meds);
+    if (user.tipo === "paciente" && (!daily || day === today())) {
+      await syncMedicationReminders(meds).catch(() => {});
+    }
     if (daily)
       setConsultas(
         (await api("/consultas")).filter((c) => c.data_consulta === day),
@@ -214,6 +236,32 @@ export function Medications({
     a.run(load);
   }, [day, consultation, patient]);
   useOnFocus(navigation, () => a.run(load));
+  useEffect(() => {
+    const timer = setInterval(() => setClock(Date.now()), 30000);
+    timer?.unref?.();
+    return () => clearInterval(timer);
+  }, []);
+  async function registerDose(r, taken) {
+    try {
+      await api(`/remedios/${r.id}/tomar`, {
+        method: "PUT",
+        body: {
+          dia: today(),
+          tomado: taken,
+          ...(!taken ? { registro_id: r.ultimo_registro_id } : {}),
+        },
+      });
+    } catch (error) {
+      await load().catch(() => {});
+      throw error;
+    }
+    await load();
+    a.setNotice(
+      taken
+        ? "Tomada registrada."
+        : "Marcação corrigida. Isso não altera a prescrição.",
+    );
+  }
   return (
     <Page title={daily ? "Agenda do dia" : "Remédios"}>
       <Card style={{ borderWidth: 0 }}>
@@ -257,9 +305,36 @@ export function Medications({
         Atualizar
       </Button>
       {a.feedback}
+      {user.tipo === "paciente" && (
+        <Button
+          secondary
+          icon="pill"
+          onPress={() =>
+            a.run(async () => {
+              if (!(await requestMedicationReminders()))
+                throw new Error(
+                  "Permita notificações nos ajustes do celular. No navegador, use o aplicativo móvel para receber lembretes.",
+                );
+              await syncMedicationReminders(await api("/remedios"));
+              a.setNotice(
+                "Lembretes ativados para os próximos dias. Abra o aplicativo regularmente para atualizá-los.",
+              );
+            })
+          }
+        >
+          Ativar lembretes de remédios
+        </Button>
+      )}
       {user.tipo === "medico" && consultation && !edit && (
         <Button
-          onPress={() => setEdit({ data_inicio: today(), data_fim: today() })}
+          onPress={() =>
+            setEdit({
+              data_inicio: today(),
+              data_fim: today(),
+              tomadas_por_dia: 1,
+              intervalo_minimo_minutos: 0,
+            })
+          }
         >
           Adicionar remédio
         </Button>
@@ -291,9 +366,30 @@ export function Medications({
       {!list.length && <Txt>Nenhum remédio para exibir.</Txt>}
       {list.map((r) => (
         <Card key={r.id}>
-          <Txt title>
+          <Txt
+            title
+            style={{
+              textDecorationLine: r.tomado_hoje ? "line-through" : "none",
+            }}
+          >
             {r.horario_remedio} · {r.nome_remedio}
           </Txt>
+          {!!r.tomado_hoje && <MedicationTakenBadge />}
+          <MedicationCounts medication={r} />
+          {!!r.limite_atingido && (
+            <Txt accessibilityRole="status">Limite de hoje atingido.</Txt>
+          )}
+          {!r.limite_atingido &&
+            !!r.proximo_registro_em &&
+            Date.parse(r.proximo_registro_em) > clock && (
+              <Txt accessibilityRole="status">
+                Próximo registro após{" "}
+                {new Date(r.proximo_registro_em).toLocaleString("pt-BR", {
+                  timeZone: "America/Sao_Paulo",
+                })}
+                , conforme o intervalo prescrito.
+              </Txt>
+            )}
           <Txt>{r.quantidade_remedio}</Txt>
           <Txt>
             De {dateBR(r.data_inicio)} até {dateBR(r.data_fim)}
@@ -312,21 +408,29 @@ export function Medications({
             r.data_fim >= today() && (
               <Button
                 secondary
-                selected={r.tomado_hoje}
-                disabled={a.busy}
+                disabled={
+                  a.busy ||
+                  (r.limite_atingido ?? r.tomado_hoje) ||
+                  Date.parse(r.proximo_registro_em || "") > clock
+                }
                 onPress={() =>
                   a.run(async () => {
-                    await api(`/remedios/${r.id}/tomar`, {
-                      method: "PUT",
-                      body: { dia: today(), tomado: !r.tomado_hoje },
-                    });
-                    await load();
+                    await registerDose(r, true);
                   })
                 }
               >
-                {r.tomado_hoje
-                  ? "Desmarcar tomada de hoje"
-                  : "Marcar como tomado hoje"}
+                Marcar como tomado hoje
+              </Button>
+            )}
+          {user.tipo === "paciente" &&
+            (!daily || day === today()) &&
+            (r.tomadas_hoje > 0 || r.tomado_hoje) && (
+              <Button
+                secondary
+                disabled={a.busy}
+                onPress={() => setCorrection(r)}
+              >
+                Marquei por engano
               </Button>
             )}
           {user.tipo === "medico" && (
@@ -341,6 +445,23 @@ export function Medications({
           )}
         </Card>
       ))}
+      <Confirm
+        pending={
+          correction && {
+            title: "Corrigir marcação?",
+            message:
+              "Use esta opção apenas se a última tomada foi registrada por engano. Não apaga uma dose que você realmente tomou e não autoriza tomar outra dose.",
+          }
+        }
+        close={() => setCorrection(null)}
+        busy={a.busy}
+        onConfirm={() =>
+          a.run(async () => {
+            await registerDose(correction, false);
+            setCorrection(null);
+          })
+        }
+      />
       <Confirm
         pending={
           pending && {

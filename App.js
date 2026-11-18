@@ -25,6 +25,7 @@ import {
 } from "./src/components/ui";
 import Icon from "./src/components/Icon";
 import SessionReminders from "./src/components/SessionReminders";
+import MedicationReminders from "./src/components/MedicationReminders";
 import Auth from "./src/screens/Auth";
 import Booking from "./src/screens/Booking";
 import Chat from "./src/screens/Chat";
@@ -258,6 +259,7 @@ export default function App() {
         ) : (
           <Services.Provider value={{ session, api, logout, updateUser }}>
             <SessionReminders session={session} api={api} />
+            <MedicationReminders session={session} api={api} />
             <NavigationContainer
               onStateChange={() => stopReading().catch(() => {})}
               theme={{

@@ -145,6 +145,11 @@ test("todas as páginas oferecem ajustes de acessibilidade sem mudar de tela", a
     );
   });
   await press(root, "Acessibilidade");
+  await press(root, "Ler em voz alta");
+  assert.match(runtime.speech.at(-1).text, /Texto maior: desativado/);
+  assert.match(runtime.speech.at(-1).text, /Tema atual: escuro/);
+  assert.match(runtime.speech.at(-1).text, /Modo claro ou Modo escuro/);
+  await press(root, "Parar leitura");
   await press(root, "Texto maior");
   await press(root, "Modo claro");
   assert.deepEqual(changes, [

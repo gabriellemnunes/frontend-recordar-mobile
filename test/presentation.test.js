@@ -254,7 +254,7 @@ test("texto ampliado mantém espaçamento e foco visível nos campos", async () 
     .findAllByType("Text")
     .find((t) => t.props.children === "Texto de apoio");
   const style = Object.assign({}, ...text.props.style);
-  assert.equal(style.fontSize, 20);
+  assert.equal(style.fontSize, 22.5);
   assert.ok(style.lineHeight >= style.fontSize * 1.5);
   assert.equal(text.props.allowFontScaling, true);
   let field = root.root.findByType("TextInput");

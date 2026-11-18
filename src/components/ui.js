@@ -178,7 +178,7 @@ export function palette(role = "paciente", light = false) {
           input: "#ffffff",
         }
       : {
-          background: "#f5f3fc",
+          background: "#f4f8f7",
           surface: "#ffffff",
           text: "#1c1730",
           muted: "#4b4466",
@@ -222,7 +222,7 @@ export function Txt({ children, title, style, ...props }) {
   const t = useContext(ThemeContext);
   const custom = { ...(StyleSheet.flatten(style) || {}) },
     scale = t.large ? 1.25 : 1;
-  const size = Math.max(16, custom.fontSize || (title ? 26 : 18));
+  const size = Math.max(18, custom.fontSize || (title ? 26 : 20));
   if (
     ["#30223f", "#3d3447", "#544a60", "#5c348d", "#452069"].includes(
       custom.color,
@@ -547,7 +547,16 @@ export function Page({ title, children, readingKey = title, ...props }) {
       >
         <ReadAloud
           readingKey={readingKey}
-          getText={() => [...readable.current.values()].filter(Boolean).join(". ")}
+          getText={() =>
+            [
+              preferencesOpen
+                ? `Acessibilidade. Ler em voz alta lê o conteúdo desta tela. Parar leitura interrompe a voz. Texto maior: ${t.large ? "ativado" : "desativado"}. Tema atual: ${t.light ? "claro" : "escuro"}. Você pode escolher Modo claro ou Modo escuro. As preferências ficam salvas neste aparelho.`
+                : "Use Acessibilidade para aumentar o texto ou mudar o tema.",
+              ...readable.current.values(),
+            ]
+              .filter(Boolean)
+              .join(". ")
+          }
         />
         <Button
           icon="accessibility"
@@ -557,9 +566,7 @@ export function Page({ title, children, readingKey = title, ...props }) {
         >
           {preferencesOpen ? "Fechar acessibilidade" : "Acessibilidade"}
         </Button>
-        {preferencesOpen && (
-          <PageAccessibility />
-        )}
+        {preferencesOpen && <PageAccessibility />}
         <ReadingContext.Provider value={register}>
           {title && (
             <Txt title accessibilityRole="header">
