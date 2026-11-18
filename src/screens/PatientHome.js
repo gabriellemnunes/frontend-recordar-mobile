@@ -17,6 +17,8 @@ import {
   nameOf,
 } from "../components/ui";
 import AppointmentCard from "../components/AppointmentCard";
+import MedicationTakenBadge from "../components/MedicationTakenBadge";
+import MedicationCounts from "../components/MedicationCounts";
 import { patientOverview } from "../patientOverview";
 
 export default function PatientHome({ api, user, navigation }) {
@@ -65,24 +67,8 @@ export default function PatientHome({ api, user, navigation }) {
         </View>
       </View>
       <View style={{ gap: 6, marginTop: 12 }}>
-        <Txt style={{ color: t.primary, fontWeight: "600", fontSize: 16 }}>
-          {new Intl.DateTimeFormat("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          }).format(new Date())}
-        </Txt>
         <Txt title accessibilityRole="header">
           Olá, {nameOf(user)}
-        </Txt>
-        {!!user.demonstracao && (
-          <Txt style={{ color: t.muted, fontSize: 16 }}>
-            Demonstração · dados fictícios
-          </Txt>
-        )}
-        <Txt style={{ color: t.muted }}>
-          Suas consultas e seus medicamentos, em um só lugar.
         </Txt>
       </View>
       <View style={{ gap: 12 }}>
@@ -119,15 +105,10 @@ export default function PatientHome({ api, user, navigation }) {
         <View style={{ flexGrow: 1, flexBasis: 240 }}>
           <SectionHeading icon="stethoscope">Próxima consulta</SectionHeading>
         </View>
-        {!!data?.upcoming.length && (
-          <Txt style={{ color: t.muted, fontSize: 16 }}>
-            {data.upcoming.length} na agenda
-          </Txt>
-        )}
       </View>
       {data &&
         (data.next ? (
-          <AppointmentCard appointment={data.next}>
+          <AppointmentCard appointment={data.next} compact>
             <Button secondary onPress={() => go("Agendamento")}>
               Ver minha agenda
             </Button>
@@ -182,11 +163,20 @@ export default function PatientHome({ api, user, navigation }) {
                 </Txt>
               </View>
               <View style={{ flexGrow: 1, flexBasis: 160 }}>
-                <Txt style={{ fontWeight: "600" }}>{m.nome_remedio}</Txt>
-                <Txt style={{ fontSize: 16, color: t.muted }}>
-                  {m.quantidade_remedio} ·{" "}
-                  {m.tomado_hoje ? "Tomado hoje" : "Pendente"}
+                <Txt
+                  style={{
+                    fontWeight: "600",
+                    textDecorationLine: m.tomado_hoje ? "line-through" : "none",
+                  }}
+                >
+                  {m.nome_remedio}
                 </Txt>
+                {m.tomado_hoje ? (
+                  <MedicationTakenBadge />
+                ) : (
+                  <Txt style={{ color: t.muted }}>Pendente</Txt>
+                )}
+                <MedicationCounts medication={m} />
               </View>
             </View>
           ))}

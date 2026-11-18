@@ -2,7 +2,12 @@ const { reminderPlan } = require("./reminderPlan");
 
 // As operações são serializadas: uma sincronização antiga não pode recriar
 // lembretes depois de uma atualização mais recente ou da saída da conta.
-function createReminderManager(adapter) {
+function createReminderManager(
+  adapter,
+  plan = reminderPlan,
+  prefix = "recordar-",
+  limit = 24,
+) {
   let queue = Promise.resolve();
   let revision = 0;
   const enqueue = (action) => {
@@ -13,7 +18,10 @@ function createReminderManager(adapter) {
   async function remove() {
     const pending = await adapter.pending();
     for (const item of pending) {
-      if (item.identifier.startsWith("recordar-"))
+      if (
+        item.identifier.startsWith(prefix) &&
+        (prefix !== "recordar-" || !item.identifier.startsWith("recordar-med-"))
+      )
         await adapter.cancel(item.identifier);
     }
   }
@@ -31,10 +39,10 @@ function createReminderManager(adapter) {
         if (current !== revision) return false;
         await remove();
         if (!(await adapter.permitted()) || current !== revision) return false;
-        const plan = reminderPlan(appointments)
+        const items = plan(appointments)
           .sort((a, b) => a.date - b.date)
-          .slice(0, 60);
-        for (const item of plan) {
+          .slice(0, limit);
+        for (const item of items) {
           if (current !== revision) return false;
           await adapter.schedule(item);
         }

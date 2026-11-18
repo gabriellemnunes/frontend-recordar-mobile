@@ -6,6 +6,7 @@ export default function AppointmentCard({
   appointment: c,
   children,
   available = false,
+  compact = false,
 }) {
   const t = useContext(ThemeContext);
   const [year, month, day] = (c.data_consulta || "").split("-");
@@ -73,9 +74,12 @@ export default function AppointmentCard({
                 : "Consulta agendada"}
           </Txt>
           <Txt style={{ fontSize: 23, fontWeight: "700" }}>
-            {c.nome_medico || "Profissional"}
+            {(c.nome_medico || "Profissional").replace(
+              /\s*\(demonstração\)/gi,
+              "",
+            )}
           </Txt>
-          {!!c.nome_especialidade && (
+          {!compact && !!c.nome_especialidade && (
             <Txt style={{ fontSize: 17, color: t.muted }}>
               {c.nome_especialidade}
             </Txt>
@@ -94,9 +98,12 @@ export default function AppointmentCard({
         }}
       >
         <Txt style={{ fontSize: 18, fontWeight: "600" }}>
-          {c.nome_clinica || "Clínica"}
+          {(c.nome_clinica || "Clínica").replace(
+            /\s*[—–-]\s*demonstração/gi,
+            "",
+          )}
         </Txt>
-        {!!c.endereco_clinica && (
+        {!compact && !!c.endereco_clinica && (
           <Txt style={{ fontSize: 16, color: t.muted }}>
             {c.endereco_clinica}
           </Txt>
