@@ -1,82 +1,174 @@
-# Recordar — aplicativo mobile de Louise
+<p align="center">
+  <img src="assets/recordar-logo.png" alt="Logo do Recordar" width="180" />
+</p>
 
-Migração do front-end PWA para React Native + Expo, com áreas de paciente, médico e administrador. Histórico organizado em um commit por task para a `main`.
+# Recordar | Aplicativo Mobile
 
-## Rodar o aplicativo
+**React Native • Expo SDK 58 • JavaScript**
 
-Requisitos: Node.js 24 e npm; Expo Go compatível com SDK 58 ou um development build correspondente.
-
-```powershell
-npm ci
-Copy-Item .env.example .env
-```
-
-Edite `.env` e configure `EXPO_PUBLIC_API_URL` com a URL da API terminando em `/api`. Em celular físico, use o IP do computador na mesma rede, por exemplo `http://192.168.0.10:3000/api`. `localhost` no celular aponta para o próprio celular. Para a API hospedada da equipe, use o endereço fornecido pela equipe. Nenhuma credencial ou URL de produção foi embutida.
-
-```powershell
-npm start
-```
-
-Escaneie o QR no Expo Go. Alternativas: `npm run android` para emulador; `npm run web` para navegador. A exportação gera bundles, não um APK.
-
-## Backend local para demonstração
-
-Em uma pasta ao lado da pasta do app:
-
-```powershell
-git clone https://github.com/gabriellemnunes/backend-recordar-mobile.git backend
-cd backend
-npm ci
-npm run demo
-```
-
-A demonstração existente na API sobe na porta 3000 e usa banco descartável. Paciente: `paciente@demo.recordar`; médico: `medico@demo.recordar`; senha fictícia: `RecordarDemo123!`. A demonstração existente não cria administrador. O script de integração abaixo cria os três perfis em um banco independente e encerra o banco ao terminar.
-
-## Testar
-
-```powershell
-npm test
-npm run check:format
-npm run export
-```
-
-Integração HTTP com a cópia do backend em `../backend-recordar-mobile`:
-
-```powershell
-npm run test:integration
-```
-
-Se o backend estiver em outra pasta:
-
-```powershell
-$env:RECORDAR_BACKEND_DIR='C:\caminho\backend-recordar-mobile'
-npm run test:integration
-```
-
-A integração baixa MongoDB 7.0.24 na primeira execução (aproximadamente 600 MB). Cria banco temporário e dados fictícios, sem usar o banco oficial. Os testes de componentes usam controles nativos simulados; não substituem testes de aparelho, TalkBack ou VoiceOver.
+O **Recordar** é um aplicativo mobile para organização de cuidados de saúde, com áreas para pacientes, médicos e administradores.
 
 ## Funcionalidades
 
-- Login dos três perfis; cadastro de paciente e recuperação de senha de paciente/médico.
-- Navegação Stack/Tabs, retorno de tela e sessão nativa em armazenamento protegido.
-- Paciente: agenda diária, remédios e tomada, anamnese, perfil, consultas e histórico.
-- Agendamento: pré-triagem concluída ou direto, filtros, confirmação, troca, cancelamento, conflitos e lembretes locais.
-- Médico: horários por clínica, pacientes, anamnese, prescrições, aviso de troca, consulta realizada e histórico.
-- Administrador: cadastro/edição/exclusão de clínicas e especialidades; gestão de pacientes, médicos e administradores; exclusão de consultas com confirmação e aviso sobre as prescrições vinculadas.
-- Texto maior e modo claro no login, aplicados ao app; leitura de instruções; controles de pelo menos 56 pontos; seletores nativos de data e horário.
+- Cadastro, login, recuperação de senha e gerenciamento de perfis.
+- Agendamento, remarcação e cancelamento de consultas, com pré-triagem integrada.
+- Agenda, histórico de consultas, anamnese e acompanhamento de medicamentos.
+- Registro de tomadas e lembretes locais.
+- Área médica com horários, pacientes e prescrições.
+- Área administrativa para clínicas, especialidades, usuários e consultas.
+- Navegação Stack/Tabs, ajustes de texto e recursos de acessibilidade.
 
-## Chatbot: dependência externa pendente
+> O chatbot depende de uma rota autenticada ainda não disponibilizada pelo backend. Alguns recursos nativos precisam de validação em aparelho físico.
 
-O backend clonado não expõe uma rota de conversa. A interface mostra essa indisponibilidade e permite ir ao agendamento. Para ativar o envio, a equipe precisa disponibilizar uma rota autenticada e configurar `EXPO_PUBLIC_CHAT_PATH` com um caminho relativo na mesma API. Contrato proposto: POST `{ mensagem, id_conversa }` retorna `{ resposta, id_conversa }`. Esse contrato precisa ser confirmado com quem implementa o serviço de IA. Não há respostas médicas simuladas nem segredo de serviço no aplicativo. As pré-triagens já persistidas são lidas e usadas pelo agendamento existente.
+## Tecnologias
 
-## Limites da validação
+React Native, Expo SDK 58, React 19, JavaScript, React Navigation, Expo Secure Store, AsyncStorage, Expo Notifications, Expo Speech, Expo Image Picker e React Native SVG.
 
-As duas mudanças foram aplicadas e testadas na versão 3 do arquivo Figma que Louise abriu: https://www.figma.com/make/uGF9kF36Ri08GvOyWiogI1/Mobile-version-of-Recordar. Consulte `docs/FIGMA.md`. A igualdade visual completa de todas as telas ainda não foi auditada. Não houve revisão visual em aparelho físico nem validação real de notificações, voz e leitores de tela.
+## Requisitos
 
-O primeiro envio por Git local falhou por bloqueio do gerenciador de credenciais. O histórico foi reorganizado por task para envio pelo conector GitHub autorizado. Consulte o histórico da main e `docs/COMMITS-POR-TASK.md` para os commits publicados. Os hashes do pacote local anterior são diferentes dos commits reorganizados.
+- Node.js 24 e npm
+- Git
+- Expo Go compatível com SDK 58 ou ambiente de desenvolvimento correspondente
+- Acesso à API do Recordar
 
-## Estrutura
+## Como rodar o frontend
 
-As correções de integração do agendamento com os commits de Bia e Louise estão descritas em [docs/GABI-INTEGRACAO.md](docs/GABI-INTEGRACAO.md), incluindo o contrato `id` da pré-triagem, o encaminhamento do chatbot e a sincronização dos lembretes fora da aba de agendamento.
+### 1. Clonar o projeto
 
-`App.js`: sessão e navegação por papel. `src/components`: controles, temas e acessibilidade. `src/screens`: autenticação e áreas funcionais. `src/api.js`: HTTP autenticado e erros. `src/reminders.js`: notificações locais existentes. `test`: testes de contrato e componentes. `scripts/integration.cjs`: integração com MongoDB descartável.
+```bash
+git clone https://github.com/gabriellemnunes/frontend-recordar-mobile.git
+```
+
+### 2. Entrar na pasta
+
+```bash
+cd frontend-recordar-mobile
+```
+
+### 3. Instalar as dependências
+
+```bash
+npm ci
+```
+
+### 4. Criar o arquivo de ambiente (PowerShell)
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Configure o `.env`:
+
+```dotenv
+EXPO_PUBLIC_API_URL=http://192.168.0.10:3000/api
+EXPO_PUBLIC_CHAT_PATH=
+```
+
+Substitua o IP pelo endereço da máquina que executa o backend, ou pela URL da API fornecida pela equipe. Em celular físico, `localhost` aponta para o próprio celular. Não inclua senhas ou segredos em variáveis `EXPO_PUBLIC_*`.
+
+### 5. Iniciar o Expo
+
+```bash
+npm start
+```
+
+Abra o Expo Go e escaneie o QR Code. O computador e o celular devem conseguir se comunicar pela rede.
+
+### Outras opções
+
+Android com emulador configurado:
+
+```bash
+npm run android
+```
+
+Navegador:
+
+```bash
+npm run web
+```
+
+Limpar cache do Metro:
+
+```bash
+npx expo start --clear
+```
+
+## Backend local para demonstração
+
+Em outra pasta:
+
+```bash
+git clone https://github.com/gabriellemnunes/backend-recordar-mobile.git
+```
+
+```bash
+cd backend-recordar-mobile
+```
+
+```bash
+npm ci
+```
+
+```bash
+npm run demo
+```
+
+O ambiente de demonstração documentado utiliza a porta 3000 e um banco descartável. Contas fictícias: `paciente@demo.recordar` e `medico@demo.recordar`, ambas com a senha `RecordarDemo123!`. Não há administrador criado por padrão nessa demonstração. Não utilize essas credenciais em produção.
+
+## Testes e qualidade
+
+Na pasta do frontend, execute separadamente:
+
+```bash
+npm test
+```
+
+```bash
+npm run check:format
+```
+
+```bash
+npm run export
+```
+
+Para testar integração HTTP com o backend localizado em `../backend-recordar-mobile`:
+
+```bash
+npm run test:integration
+```
+
+Caso o backend esteja em outro diretório, configure a variável `RECORDAR_BACKEND_DIR`. Na primeira execução, os testes de integração podem baixar o MongoDB 7.0.24 (aproximadamente 600 MB). Os testes automatizados não substituem testes em dispositivos reais.
+
+## Estrutura do projeto
+
+```text
+frontend-recordar-mobile/
+├── assets/              # Recursos visuais
+├── docs/                # Documentação
+├── scripts/             # Utilitários e integração
+├── src/
+│   ├── components/      # Componentes reutilizáveis
+│   ├── screens/         # Telas por perfil
+│   ├── api.js           # Comunicação com a API
+│   └── ...              # Lembretes, armazenamento e utilitários
+├── test/                # Testes automatizados
+├── App.js               # Entrada, sessão e navegação
+├── app.json             # Configuração do Expo
+├── package.json         # Scripts e dependências
+└── .env.example         # Exemplo de configuração
+```
+
+## Integração e documentação
+
+- [Documentação de integração](docs/GABI-INTEGRACAO.md)
+- [Histórico de commits por tarefa](docs/COMMITS-POR-TASK.md)
+- [Backend](https://github.com/gabriellemnunes/backend-recordar-mobile)
+
+## Equipe
+
+Projeto desenvolvido colaborativamente. Consulte os [contribuidores](https://github.com/gabriellemnunes/frontend-recordar-mobile/graphs/contributors) e o histórico de commits para acompanhar as contribuições.
+
+---
+
+**Recordar** — tecnologia para apoiar a organização do cuidado e o acesso a serviços de saúde.
