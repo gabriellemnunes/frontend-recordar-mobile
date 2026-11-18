@@ -377,12 +377,12 @@ export function Medications({
           {!!r.tomado_hoje && <MedicationTakenBadge />}
           <MedicationCounts medication={r} />
           {!!r.limite_atingido && (
-            <Txt accessibilityRole="status">Limite de hoje atingido.</Txt>
+            <Txt accessibilityRole="polite">Limite de hoje atingido.</Txt>
           )}
           {!r.limite_atingido &&
             !!r.proximo_registro_em &&
             Date.parse(r.proximo_registro_em) > clock && (
-              <Txt accessibilityRole="status">
+              <Txt accessibilityRole="polite">
                 Próximo registro após{" "}
                 {new Date(r.proximo_registro_em).toLocaleString("pt-BR", {
                   timeZone: "America/Sao_Paulo",
