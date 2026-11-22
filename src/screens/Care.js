@@ -350,7 +350,7 @@ export function Medications({
               a.run(async () => {
                 await api("/remedios" + (edit.id ? `/${edit.id}` : ""), {
                   method: edit.id ? "PUT" : "POST",
-                  body: { ...v, id_consulta: consultation },
+                  body: { ...v, tomadas_por_dia: Number(v.tomadas_por_dia), intervalo_minimo_minutos: v.intervalo_minimo_minutos ? Number(v.intervalo_minimo_minutos) : undefined, id_consulta: consultation },
                 });
                 setEdit(null);
                 await load();
