@@ -18,7 +18,7 @@ O **Recordar** é um aplicativo mobile para organização de cuidados de saúde,
 - Área administrativa para clínicas, especialidades, usuários e consultas.
 - Navegação Stack/Tabs, ajustes de texto e recursos de acessibilidade.
 
-> O chatbot depende de uma rota autenticada ainda não disponibilizada pelo backend. Alguns recursos nativos precisam de validação em aparelho físico.
+> O chatbot está integrado à rota autenticada `/api/chat`, com IA local, pré-triagem persistida e encaminhamento ao agendamento. Consulte [docs/CHATBOT.md](docs/CHATBOT.md). Alguns recursos nativos precisam de validação em aparelho físico.
 
 ## Tecnologias
 
@@ -61,7 +61,7 @@ Configure o `.env`:
 
 ```dotenv
 EXPO_PUBLIC_API_URL=http://192.168.0.10:3000/api
-EXPO_PUBLIC_CHAT_PATH=
+EXPO_PUBLIC_CHAT_PATH=/chat
 ```
 
 Substitua o IP pelo endereço da máquina que executa o backend, ou pela URL da API fornecida pela equipe. Em celular físico, `localhost` aponta para o próprio celular. Não inclua senhas ou segredos em variáveis `EXPO_PUBLIC_*`.

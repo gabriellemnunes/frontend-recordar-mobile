@@ -11,6 +11,7 @@ if not exist "%BACK%\package.json" (
     exit /b 1
 )
 
+powershell -NoProfile -Command "Start-Process -FilePath 'node' -WorkingDirectory '%BACK%' -ArgumentList 'scripts/start-ai-local.cjs' -WindowStyle Hidden"
 start "Recordar Backend" cmd /k "cd /d ""%BACK%"" && npm run demo"
 
 start "Recordar Frontend" cmd /k "cd /d ""%BASE%"" && npx expo start --clear"
