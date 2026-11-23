@@ -262,28 +262,32 @@ async function main() {
     (await patient.api("/consultas")).length === 0,
     "agendamento direto e cancelamento",
   );
-  await guest("/auth/recuperar-senha", {
-    method: "POST",
-    body: {
-      tipo: "paciente",
-      email: "paciente@test.recordar",
-      data_nascimento: "1950-01-01",
-      nova_senha: "Nova123!",
-      confirmar_senha: "Nova123!",
-    },
-  });
+  delete process.env.ALLOW_INSECURE_PASSWORD_RECOVERY;
+  await assert.rejects(
+    guest("/auth/recuperar-senha", {
+      method: "POST",
+      body: {
+        tipo: "paciente",
+        email: "paciente@test.recordar",
+        data_nascimento: "1950-01-01",
+        nova_senha: "Nova123!",
+        confirmar_senha: "Nova123!",
+      },
+    }),
+    (e) => e.status === 403,
+  );
   check(
     !!(
       await guest("/auth/login", {
         method: "POST",
         body: {
           email: "paciente@test.recordar",
-          senha: "Nova123!",
+          senha: "Teste123!",
           tipo: "paciente",
         },
       })
     ).token,
-    "recuperação de senha e novo login",
+    "recuperação legada bloqueada preserva senha e login existentes",
   );
   await assert.rejects(patient.api("/users"), (e) => e.status === 403);
   check(true, "permissões negam administração a paciente");
