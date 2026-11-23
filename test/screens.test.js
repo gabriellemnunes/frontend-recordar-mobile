@@ -199,7 +199,7 @@ test("paciente registra e desfaz tomada no contrato da API", async () => {
   assert.equal(calls.filter((c) => c.method === "PUT")[1].body.tomado, false);
   await close();
 });
-test("chat sem serviço configurado bloqueia envio e oferece agendamento", async () => {
+test("chat aguarda consentimento e oferece agendamento direto", async () => {
   delete process.env.EXPO_PUBLIC_CHAT_PATH;
   const routes = [];
   await mount(
@@ -210,11 +210,12 @@ test("chat sem serviço configurado bloqueia envio e oferece agendamento", async
       navigation: { navigate: (...args) => routes.push(args) },
     }),
   );
+  await fill("Sua mensagem", "Exemplo fictício");
   const send = root.root
     .findAllByType(Button)
     .find((b) => b.props.children === "Enviar mensagem");
   assert.equal(send.props.disabled, true);
-  await click("Abrir agendamento");
+  await click("Ver pré-triagens e agendar");
   assert.deepEqual(routes, [
     [
       "Recordar",
@@ -415,6 +416,7 @@ test("chat concluido encaminha id persistido para a aba dentro da Stack", async 
         navigation: { navigate: (...args) => routes.push(args) },
       }),
     );
+    await click("Iniciar pré-triagem");
     await fill("Sua mensagem", "Mensagem ficticia");
     await click("Enviar mensagem");
     await click("Agendar com esta pré-triagem");
@@ -425,6 +427,35 @@ test("chat concluido encaminha id persistido para a aba dentro da Stack", async 
   } finally {
     delete process.env.EXPO_PUBLIC_CHAT_PATH;
   }
+});
+
+test("chat urgente mostra contato de emergencia sem encaminhar agendamento", async () => {
+  await mount(
+    React.createElement(Chat, {
+      api: async () => ({
+        resposta: "Procure atendimento de urgência.",
+        id_conversa: "c1",
+        id_pre_triagem: "t1",
+        urgencia: true,
+      }),
+      navigation: {
+        navigate: () => {
+          throw Error("Não deve agendar urgência");
+        },
+      },
+    }),
+  );
+  await click("Iniciar pré-triagem");
+  await fill("Sua mensagem", "Exemplo fictício de urgência");
+  await click("Enviar mensagem");
+  assert.match(JSON.stringify(root.toJSON()), /Ligar para o SAMU 192/);
+  assert.equal(
+    root.root
+      .findAllByType(Button)
+      .some((b) => b.props.children === "Agendar com esta pré-triagem"),
+    false,
+  );
+  await close();
 });
 
 test("retorno ao aplicativo remove lembretes de consulta realizada sem abrir agendamento", async () => {
