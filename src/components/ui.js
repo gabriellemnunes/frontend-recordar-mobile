@@ -82,7 +82,9 @@ export function ReadAloud({ getText, readingKey }) {
       if (current === generation.current) {
         setReading(false);
         setError(
-          "A leitura de voz não está disponível. Confira o volume e a voz em português nos ajustes do aparelho.",
+          Platform.OS === "ios"
+            ? "Não foi possível ler em voz alta. Desative o modo silencioso e confira o volume do iPhone."
+            : "A leitura de voz não está disponível. Confira o volume e a voz em português nos ajustes do aparelho.",
         );
       }
     };
@@ -100,6 +102,7 @@ export function ReadAloud({ getText, readingKey }) {
           Speech.speak(chunks[index], {
             language: "pt-BR",
             rate: 0.85,
+            ...(Platform.OS === "ios" && { useApplicationAudioSession: false }),
             onDone: () => next(index + 1),
             onError: fail,
             onStopped: () => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ProfileSummary from "../components/ProfileSummary";
 import MedicationTakenBadge from "../components/MedicationTakenBadge";
 import MedicationCounts from "../components/MedicationCounts";
@@ -213,7 +213,9 @@ export function Medications({
     [clock, setClock] = useState(Date.now()),
     [day, setDay] = useState(today()),
     [draftDay, setDraftDay] = useState(today()),
+    [loadedDay, setLoadedDay] = useState(null),
     [consultas, setConsultas] = useState([]);
+  const loadSequence = useRef(0);
   const query = consultation
     ? `?consulta=${consultation}`
     : patient
@@ -222,16 +224,32 @@ export function Medications({
         ? `?dia=${encodeURIComponent(day)}`
         : "";
   async function load() {
-    const meds = await api("/remedios" + query);
+    const sequence = ++loadSequence.current;
+    const [meds, events] = await Promise.all([
+      api("/remedios" + query),
+      daily ? api("/consultas") : [],
+    ]);
+    if (sequence !== loadSequence.current) return;
     setList(meds);
+    setConsultas(events.filter((c) => c.data_consulta === day));
+    setLoadedDay(day);
     if (user.tipo === "paciente" && (!daily || day === today())) {
       await syncMedicationReminders(meds).catch(() => {});
     }
-    if (daily)
-      setConsultas(
-        (await api("/consultas")).filter((c) => c.data_consulta === day),
-      );
   }
+  function showDay() {
+    const selectedDay = draftDay.trim();
+    if (selectedDay === day) a.run(load);
+    else setDay(selectedDay);
+  }
+  const dayLoaded = !daily || loadedDay === day;
+  const visibleMedications = daily
+    ? list.filter(
+        (r) =>
+          (!r.data_inicio || r.data_inicio <= day) &&
+          (!r.data_fim || r.data_fim >= day),
+      )
+    : list;
   useEffect(() => {
     a.run(load);
   }, [day, consultation, patient]);
@@ -279,7 +297,7 @@ export function Medications({
             value={draftDay}
             onChangeText={setDraftDay}
           />
-          <Button secondary disabled={a.busy} onPress={() => setDay(draftDay)}>
+          <Button secondary disabled={a.busy} onPress={showDay}>
             Ver dia
           </Button>
           <Button
@@ -291,7 +309,7 @@ export function Medications({
           >
             Voltar para hoje
           </Button>
-          {consultas.map((c) => (
+          {dayLoaded && consultas.map((c) => (
             <Card key={c.id}>
               <Txt title>{c.horario_consulta} · Consulta</Txt>
               <Txt>
@@ -301,7 +319,11 @@ export function Medications({
           ))}
         </>
       )}
-      <Button secondary disabled={a.busy} onPress={() => a.run(load)}>
+      <Button
+        secondary
+        disabled={a.busy}
+        onPress={daily ? showDay : () => a.run(load)}
+      >
         Atualizar
       </Button>
       {a.feedback}
@@ -363,8 +385,8 @@ export function Medications({
           </Button>
         </>
       )}
-      {!list.length && <Txt>Nenhum remédio para exibir.</Txt>}
-      {list.map((r) => (
+      {dayLoaded && !visibleMedications.length && <Txt>Nenhum remédio para exibir.</Txt>}
+      {dayLoaded && visibleMedications.map((r) => (
         <Card key={r.id}>
           <Txt
             title

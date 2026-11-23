@@ -199,6 +199,25 @@ test("paciente registra e desfaz tomada no contrato da API", async () => {
   assert.equal(calls.filter((c) => c.method === "PUT")[1].body.tomado, false);
   await close();
 });
+test("agenda atualiza a data digitada e oculta prescrições fora do período", async () => {
+  const paths = [];
+  const api = async (path) => {
+    paths.push(path);
+    if (path === "/consultas") return [];
+    return [{ id: "r1", nome_remedio: "Exemplo", data_inicio: "2026-11-23", data_fim: "2026-11-26" }];
+  };
+  await mount(React.createElement(Medications, { api, daily: true, user: { tipo: "paciente" } }));
+  await fill("Dia (AAAA-MM-DD)", "2026-11-26");
+  await click("Ver dia");
+  assert.ok(paths.includes("/remedios?dia=2026-11-26"));
+  assert.match(JSON.stringify(root.toJSON()), /Exemplo/);
+
+  await fill("Dia (AAAA-MM-DD)", "2026-11-28");
+  await click("Atualizar");
+  assert.ok(paths.includes("/remedios?dia=2026-11-28"));
+  assert.doesNotMatch(JSON.stringify(root.toJSON()), /Exemplo/);
+  await close();
+});
 test("chat aguarda consentimento e oferece agendamento direto", async () => {
   delete process.env.EXPO_PUBLIC_CHAT_PATH;
   const routes = [];
