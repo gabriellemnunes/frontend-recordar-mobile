@@ -676,7 +676,7 @@ export function useAction() {
     ),
   };
 }
-export function Confirm({ pending, close, busy, onConfirm }) {
+export function Confirm({ pending, close, busy, onConfirm, cancelLabel = "Voltar", confirmLabel = "Confirmar" }) {
   const t = useContext(ThemeContext);
   return (
     <Modal
@@ -699,15 +699,15 @@ export function Confirm({ pending, close, busy, onConfirm }) {
             <ReadAloud
               readingKey={pending}
               getText={() =>
-                `${pending.title || "Confirmar exclusão?"}. ${pending.message || ""}. Escolha Voltar ou Confirmar.`
+                `${pending.title || "Confirmar exclusão?"}. ${pending.message || ""}. Escolha ${cancelLabel} ou ${confirmLabel}.`
               }
             />
           )}
           <Button secondary disabled={busy} onPress={close}>
-            Voltar
+            {cancelLabel}
           </Button>
           <Button danger disabled={busy} onPress={onConfirm}>
-            Confirmar
+            {confirmLabel}
           </Button>
         </View>
       </View>

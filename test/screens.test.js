@@ -5,7 +5,7 @@ const { test } = require("node:test"),
   { create, act } = require("react-test-renderer");
 const Auth = require("../src/screens/Auth").default;
 const { Consultations, AdminResource } = require("../src/screens/Areas");
-const { Medications } = require("../src/screens/Care");
+const { Medications, Profile } = require("../src/screens/Care");
 const Chat = require("../src/screens/Chat").default;
 const { Form, Button } = require("../src/components/ui");
 let root;
@@ -225,7 +225,7 @@ test("chat sem serviço configurado bloqueia envio e oferece agendamento", async
 });
 
 const Booking = require("../src/screens/Booking").default;
-const { Profile, CreateConsultation } = require("../src/screens/Care");
+const { CreateConsultation } = require("../src/screens/Care");
 const Accessibility = require("../src/components/Accessibility").default;
 const { Field } = require("../src/components/ui");
 const session = { token: "teste", user: { id: "p1", tipo: "paciente" } };
@@ -657,5 +657,23 @@ test("acesso administrativo fica na área da equipe e volta ao tipo paciente ao 
   await click("Voltar ao acesso de paciente");
   await save({ email: "p@teste.com", senha: "123456" });
   assert.equal(calls[0].tipo, "paciente");
+  await close();
+});
+
+test("logout exige confirmação e pode ser cancelado", async () => {
+  let exits = 0;
+  await mount(React.createElement(Profile, {
+    api: async () => ({ id: "1", tipo: "administrador", nome_administrador: "Teste" }),
+    user: { id: "1", tipo: "administrador" },
+    updateUser: async () => {},
+    logout: async () => { exits++; },
+  }));
+  await click("Sair da conta");
+  assert.equal(exits, 0);
+  await click("Cancelar");
+  assert.equal(exits, 0);
+  await click("Sair da conta");
+  await click("Sair");
+  assert.equal(exits, 1);
   await close();
 });

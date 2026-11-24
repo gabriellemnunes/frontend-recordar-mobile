@@ -27,7 +27,8 @@ export function Profile({ api, user, updateUser, logout }) {
   const a = useAction(),
     [loaded, setLoaded] = useState(null),
     [refs, setRefs] = useState({ clinicas: [], especialidades: [] }),
-    [pending, setPending] = useState(null);
+    [pending, setPending] = useState(null),
+    [confirmLogout, setConfirmLogout] = useState(false);
   useEffect(() => {
     a.run(async () => {
       setLoaded(await api("/users/me"));
@@ -146,7 +147,7 @@ export function Profile({ api, user, updateUser, logout }) {
           }
         />
       )}
-      <Button secondary disabled={a.busy} onPress={() => a.run(logout)}>
+      <Button secondary disabled={a.busy} onPress={() => setConfirmLogout(true)}>
         Sair da conta
       </Button>
       {user.tipo !== "administrador" && (
@@ -154,6 +155,17 @@ export function Profile({ api, user, updateUser, logout }) {
           Excluir minha conta
         </Button>
       )}
+      <Confirm
+        pending={confirmLogout && {
+          title: "Sair da conta?",
+          message: "Deseja realmente sair da sua conta?",
+        }}
+        close={() => setConfirmLogout(false)}
+        busy={a.busy}
+        cancelLabel="Cancelar"
+        confirmLabel="Sair"
+        onConfirm={() => a.run(logout)}
+      />
       <Confirm
         pending={
           pending && {
