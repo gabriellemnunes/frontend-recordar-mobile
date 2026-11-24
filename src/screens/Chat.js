@@ -23,17 +23,6 @@ export default function Chat({ api, navigation, draft }) {
         Conte como você está se sentindo. O assistente não substitui uma
         avaliação médica.
       </Txt>
-      {urgent && (
-        <Card>
-          <Txt title accessibilityRole="alert">
-            Procure atendimento de urgência
-          </Txt>
-          <Txt>Não espere pelo agendamento. No Brasil, ligue 192 (SAMU).</Txt>
-          <Button onPress={() => a.run(() => Linking.openURL("tel:192"))}>
-            Ligar para o SAMU 192
-          </Button>
-        </Card>
-      )}
       {messages.map((m, i) => (
         <Card key={i}>
           <Txt style={{ fontWeight: "700" }}>
@@ -46,6 +35,17 @@ export default function Chat({ api, navigation, draft }) {
           </Txt>
         </Card>
       ))}
+      {urgent && (
+        <Card>
+          <Txt title accessibilityRole="alert">
+            Procure atendimento de urgência
+          </Txt>
+          <Txt>Não espere pelo agendamento. No Brasil, ligue 192 (SAMU).</Txt>
+          <Button onPress={() => a.run(() => Linking.openURL("tel:192"))}>
+            Ligar para o SAMU 192
+          </Button>
+        </Card>
+      )}
       <Field
         label="Sua mensagem"
         value={text}

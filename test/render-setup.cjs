@@ -10,6 +10,7 @@ const runtime = {
   granted: true,
   speech: [],
   speechStops: 0,
+  openedUrls: [],
 };
 module.exports = runtime;
 global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -37,6 +38,9 @@ Module._load = function (name, parent, isMain) {
       Modal: ({ visible, children }) =>
         visible ? React.createElement("Modal", null, children) : null,
       ActivityIndicator: "ActivityIndicator",
+      Linking: {
+        openURL: async (url) => runtime.openedUrls.push(url),
+      },
       StyleSheet: { create: (x) => x, flatten: (x) => x },
       Platform: { OS: "android" },
       AppState: {

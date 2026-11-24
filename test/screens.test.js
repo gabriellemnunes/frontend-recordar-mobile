@@ -488,7 +488,7 @@ test("chat concluido encaminha id persistido para a aba dentro da Stack", async 
   }
 });
 
-test("chat urgente mostra contato de emergencia sem encaminhar agendamento", async () => {
+test("chat urgente oferece ligar para o SAMU abaixo da resposta", async () => {
   await mount(
     React.createElement(Chat, {
       api: async () => ({
@@ -504,9 +504,13 @@ test("chat urgente mostra contato de emergencia sem encaminhar agendamento", asy
       },
     }),
   );
+  assert.doesNotMatch(JSON.stringify(root.toJSON()), /Ligar para o SAMU 192/);
   await fill("Sua mensagem", "Exemplo fictício de urgência");
   await click("Enviar mensagem");
-  assert.match(JSON.stringify(root.toJSON()), /Ligar para o SAMU 192/);
+  const screen = JSON.stringify(root.toJSON());
+  assert.match(screen, /Procure atendimento de urgência\..*Ligar para o SAMU 192/);
+  await click("Ligar para o SAMU 192");
+  assert.equal(runtime.openedUrls.at(-1), "tel:192");
   assert.equal(
     root.root
       .findAllByType(Button)
