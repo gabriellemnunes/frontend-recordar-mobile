@@ -3,7 +3,10 @@ function createApi(baseUrl, token, onUnauthorized = () => {}, fetcher = fetch) {
     if (!/^https?:\/\//.test(baseUrl || ""))
       throw new Error("Configure o endereço da API no arquivo .env.");
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
+    const timer = setTimeout(
+      () => controller.abort(),
+      path === "/chat" ? 95000 : 20000,
+    );
     try {
       const response = await fetcher(baseUrl.replace(/\/$/, "") + path, {
         method,
@@ -29,7 +32,10 @@ function createApi(baseUrl, token, onUnauthorized = () => {}, fetcher = fetch) {
         throw new Error(
           "O servidor demorou para responder. Confira sua conexão.",
         );
-      if (error instanceof TypeError)
+      if (
+        error instanceof TypeError ||
+        /^(fetch failed|network request failed)$/i.test(error.message || "")
+      )
         throw new Error(
           "Não foi possível conectar ao servidor. Confira sua conexão e tente novamente.",
         );

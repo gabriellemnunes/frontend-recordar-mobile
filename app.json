@@ -20,12 +20,22 @@
     ],
     "android": {
       "package": "com.recordar.mobile",
-      "permissions": ["POST_NOTIFICATIONS"]
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "ios": {
       "supportsTablet": true
     },
     "icon": "./assets/recordar-icon.png",
-    "web": { "favicon": "./assets/recordar-icon.png" }
+    "web": {
+      "favicon": "./assets/recordar-icon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "369b0751-e71b-4f62-8423-a89e4a89911e"
+      }
+    }
   }
 }

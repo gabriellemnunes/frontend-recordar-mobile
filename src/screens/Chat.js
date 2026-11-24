@@ -1,30 +1,46 @@
 import React, { useState } from "react";
+import { Linking } from "react-native";
 import { Button, Card, Field, Page, Txt, useAction } from "../components/ui";
 import { openBooking } from "../bookingNavigation";
 
-// Contract for the team's separate assistant service. No secret or AI-service
-// credential belongs in a client app. The backend must save completed triages.
-export default function Chat({ api, navigation }) {
+// O modelo roda no backend; nenhuma chave ou endereço da IA entra no APK.
+export default function Chat({ api, navigation, draft }) {
   const a = useAction(),
-    [text, setText] = useState(""),
+    [text, setText] = useState(() => draft?.current || ""),
     [messages, setMessages] = useState([]),
     [conversation, setConversation] = useState(null),
-    [completedTriage, setCompletedTriage] = useState(null);
-  const endpoint = process.env.EXPO_PUBLIC_CHAT_PATH;
+    [completedTriage, setCompletedTriage] = useState(null),
+    [urgent, setUrgent] = useState(false),
+    [consent, setConsent] = useState(false);
+  function updateDraft(value) {
+    if (draft) draft.current = value;
+    setText(value);
+  }
+  const endpoint = process.env.EXPO_PUBLIC_CHAT_PATH?.trim() || "/chat";
   return (
-    <Page title="Assistente Recordar">
+    <Page title="Assistente Recordar" automaticallyAdjustKeyboardInsets>
       <Txt>
         Conte como você está se sentindo. O assistente não substitui uma
         avaliação médica.
       </Txt>
-      {!endpoint && (
+      {!consent && (
         <Card>
           <Txt>
-            O serviço de conversa ainda não está disponível nesta API. Você pode
-            agendar diretamente ou usar uma pré-triagem já concluída.
+            O assistente usa suas mensagens para organizar uma pré-triagem e
+            sugerir especialidades. O resultado fica salvo no seu perfil. Não
+            informe senhas ou documentos.
           </Txt>
-          <Button onPress={() => openBooking(navigation)}>
-            Abrir agendamento
+          <Button onPress={() => setConsent(true)}>Iniciar pré-triagem</Button>
+        </Card>
+      )}
+      {urgent && (
+        <Card>
+          <Txt title accessibilityRole="alert">
+            Procure atendimento de urgência
+          </Txt>
+          <Txt>Não espere pelo agendamento. No Brasil, ligue 192 (SAMU).</Txt>
+          <Button onPress={() => a.run(() => Linking.openURL("tel:192"))}>
+            Ligar para o SAMU 192
           </Button>
         </Card>
       )}
@@ -43,11 +59,13 @@ export default function Chat({ api, navigation }) {
       <Field
         label="Sua mensagem"
         value={text}
-        onChangeText={setText}
+        onChangeText={updateDraft}
         multiline
+        numberOfLines={2}
+        editable={!a.busy}
       />
       <Button
-        disabled={a.busy || !text.trim() || !endpoint}
+        disabled={a.busy || !text.trim() || !consent || !!completedTriage}
         onPress={() =>
           a.run(async () => {
             if (!endpoint?.startsWith("/") || endpoint.startsWith("//"))
@@ -56,25 +74,43 @@ export default function Chat({ api, navigation }) {
               );
             const result = await api(endpoint, {
               method: "POST",
-              body: { mensagem: text.trim(), id_conversa: conversation },
+              body: {
+                mensagem: text.trim(),
+                id_conversa: conversation,
+                consentimento_ia: consent,
+              },
+            }).catch((error) => {
+              if (error.status >= 500)
+                throw new Error(
+                  "O assistente está indisponível no momento. Tente enviar sua mensagem novamente mais tarde.",
+                );
+              throw error;
             });
             if (typeof result.resposta !== "string")
-              throw new Error("O serviço retornou uma resposta incompatível.");
+              throw new Error(
+                "O assistente não conseguiu responder. Tente enviar sua mensagem novamente.",
+              );
             setMessages((old) => [
               ...old,
               { role: "user", text: text.trim() },
               { role: "assistant", text: result.resposta },
             ]);
             setConversation(result.id_conversa || conversation);
+            setUrgent(!!result.urgencia);
             if (typeof result.id_pre_triagem === "string")
               setCompletedTriage(result.id_pre_triagem);
-            setText("");
+            updateDraft("");
           })
         }
       >
         Enviar mensagem
       </Button>
       {a.feedback}
+      {a.busy && (
+        <Txt accessibilityLiveRegion="polite">
+          O assistente está organizando suas informações. Aguarde a resposta.
+        </Txt>
+      )}
       <Button
         secondary
         disabled={a.busy || !messages.length}
@@ -82,18 +118,21 @@ export default function Chat({ api, navigation }) {
           setMessages([]);
           setConversation(null);
           setCompletedTriage(null);
+          setUrgent(false);
         }}
       >
         Nova conversa
       </Button>
-      <Button
-        secondary
-        onPress={() => openBooking(navigation, completedTriage)}
-      >
-        {completedTriage
-          ? "Agendar com esta pré-triagem"
-          : "Ver pré-triagens e agendar"}
-      </Button>
+      {!urgent && (
+        <Button
+          secondary
+          onPress={() => openBooking(navigation, completedTriage)}
+        >
+          {completedTriage
+            ? "Agendar com esta pré-triagem"
+            : "Ver pré-triagens e agendar"}
+        </Button>
+      )}
     </Page>
   );
 }

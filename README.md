@@ -8,6 +8,37 @@
 
 O **Recordar** é um aplicativo mobile para organização de cuidados de saúde, com áreas para pacientes, médicos e administradores.
 
+## Instalar o APK no Android
+
+Baixe o arquivo .apk publicado em [Releases](https://github.com/gabriellemnunes/frontend-recordar-mobile/releases) ou no link do EAS informado pela equipe. Abra o arquivo no Android e permita a instalação por essa fonte se o sistema solicitar. Abra o Recordar e entre com uma conta de teste da equipe. O APK funciona sem Expo Go e sem servidor Metro.
+
+O perfil de build usa a [API publicada](https://recordar-backend-l5y2.onrender.com/api). Para conferir a disponibilidade, abra o [status da API](https://recordar-backend-l5y2.onrender.com/api/health).
+
+## Gerar o APK de entrega
+
+Depois de instalar as dependências, entre na conta Expo que tem acesso ao projeto e vincule o checkout ao projeto EAS da equipe, se necessário.
+
+```bash
+npx eas-cli@latest login
+```
+
+```bash
+npx eas-cli@latest init
+```
+
+```bash
+npx eas-cli@latest build --platform android --profile apk
+```
+
+Use a credencial de assinatura Android do projeto. Quando o build terminar, baixe o APK pelo link do EAS. Instale o arquivo em um Android antes de anexá-lo à Release do GitHub. Registre o commit compilado e o dispositivo usado.
+
+Valide em um Android com uma conta fictícia da equipe:
+
+- Abrir o APK, entrar, encerrar a sessão e entrar novamente.
+- Navegar pelas abas e conferir texto ampliado, teclado e botão Voltar.
+- Verificar agendamento, histórico, medicamentos e lembretes.
+- Abrir o chat e conferir a resposta da API e o encaminhamento ao agendamento.
+
 ## Funcionalidades
 
 - Cadastro, login, recuperação de senha e gerenciamento de perfis.
@@ -18,7 +49,7 @@ O **Recordar** é um aplicativo mobile para organização de cuidados de saúde,
 - Área administrativa para clínicas, especialidades, usuários e consultas.
 - Navegação Stack/Tabs, ajustes de texto e recursos de acessibilidade.
 
-> O chatbot depende de uma rota autenticada ainda não disponibilizada pelo backend. Alguns recursos nativos precisam de validação em aparelho físico.
+> O chatbot está integrado à rota autenticada `/api/chat`, com IA local, pré-triagem persistida e encaminhamento ao agendamento. Consulte [docs/CHATBOT.md](docs/CHATBOT.md). Alguns recursos nativos precisam de validação em aparelho físico.
 
 ## Tecnologias
 
@@ -60,11 +91,11 @@ Copy-Item .env.example .env
 Configure o `.env`:
 
 ```dotenv
-EXPO_PUBLIC_API_URL=http://192.168.0.10:3000/api
-EXPO_PUBLIC_CHAT_PATH=
+EXPO_PUBLIC_API_URL=https://recordar-backend-l5y2.onrender.com/api
+EXPO_PUBLIC_CHAT_PATH=/chat
 ```
 
-Substitua o IP pelo endereço da máquina que executa o backend, ou pela URL da API fornecida pela equipe. Em celular físico, `localhost` aponta para o próprio celular. Não inclua senhas ou segredos em variáveis `EXPO_PUBLIC_*`.
+Para usar um backend local durante o desenvolvimento, troque a URL pelo IP da máquina que executa o backend, seguido de :3000/api. Em celular físico, `localhost` aponta para o próprio celular. Não inclua senhas ou segredos em variáveis `EXPO_PUBLIC_*`.
 
 ### 5. Iniciar o Expo
 

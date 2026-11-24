@@ -40,6 +40,17 @@ test("expiração de sessão aciona saída e mantém mensagem do servidor", asyn
   await assert.rejects(api("/consultas"), /Sessão expirada/);
   assert.equal(exited, true);
 });
+test("falha de rede informa como tentar novamente", async () => {
+  const api = createApi(
+    "https://example.com/api",
+    "token",
+    undefined,
+    async () => {
+      throw new Error("fetch failed");
+    },
+  );
+  await assert.rejects(api("/chat"), /Confira sua conexão e tente novamente/);
+});
 test("filtro recomendado inclui apenas parâmetros preenchidos", () => {
   assert.equal(
     availablePath({ triageId: "abc", date: "2099-12-09" }),

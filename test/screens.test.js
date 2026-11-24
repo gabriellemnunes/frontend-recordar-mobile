@@ -199,7 +199,26 @@ test("paciente registra e desfaz tomada no contrato da API", async () => {
   assert.equal(calls.filter((c) => c.method === "PUT")[1].body.tomado, false);
   await close();
 });
-test("chat sem serviço configurado bloqueia envio e oferece agendamento", async () => {
+test("agenda atualiza a data digitada e oculta prescrições fora do período", async () => {
+  const paths = [];
+  const api = async (path) => {
+    paths.push(path);
+    if (path === "/consultas") return [];
+    return [{ id: "r1", nome_remedio: "Exemplo", data_inicio: "2026-11-23", data_fim: "2026-11-26" }];
+  };
+  await mount(React.createElement(Medications, { api, daily: true, user: { tipo: "paciente" } }));
+  await fill("Dia (AAAA-MM-DD)", "2026-11-26");
+  await click("Ver dia");
+  assert.ok(paths.includes("/remedios?dia=2026-11-26"));
+  assert.match(JSON.stringify(root.toJSON()), /Exemplo/);
+
+  await fill("Dia (AAAA-MM-DD)", "2026-11-28");
+  await click("Atualizar");
+  assert.ok(paths.includes("/remedios?dia=2026-11-28"));
+  assert.doesNotMatch(JSON.stringify(root.toJSON()), /Exemplo/);
+  await close();
+});
+test("chat aguarda consentimento e oferece agendamento direto", async () => {
   delete process.env.EXPO_PUBLIC_CHAT_PATH;
   const routes = [];
   await mount(
@@ -210,11 +229,12 @@ test("chat sem serviço configurado bloqueia envio e oferece agendamento", async
       navigation: { navigate: (...args) => routes.push(args) },
     }),
   );
+  await fill("Sua mensagem", "Exemplo fictício");
   const send = root.root
     .findAllByType(Button)
     .find((b) => b.props.children === "Enviar mensagem");
   assert.equal(send.props.disabled, true);
-  await click("Abrir agendamento");
+  await click("Ver pré-triagens e agendar");
   assert.deepEqual(routes, [
     [
       "Recordar",
@@ -415,6 +435,7 @@ test("chat concluido encaminha id persistido para a aba dentro da Stack", async 
         navigation: { navigate: (...args) => routes.push(args) },
       }),
     );
+    await click("Iniciar pré-triagem");
     await fill("Sua mensagem", "Mensagem ficticia");
     await click("Enviar mensagem");
     await click("Agendar com esta pré-triagem");
@@ -425,6 +446,35 @@ test("chat concluido encaminha id persistido para a aba dentro da Stack", async 
   } finally {
     delete process.env.EXPO_PUBLIC_CHAT_PATH;
   }
+});
+
+test("chat urgente mostra contato de emergencia sem encaminhar agendamento", async () => {
+  await mount(
+    React.createElement(Chat, {
+      api: async () => ({
+        resposta: "Procure atendimento de urgência.",
+        id_conversa: "c1",
+        id_pre_triagem: "t1",
+        urgencia: true,
+      }),
+      navigation: {
+        navigate: () => {
+          throw Error("Não deve agendar urgência");
+        },
+      },
+    }),
+  );
+  await click("Iniciar pré-triagem");
+  await fill("Sua mensagem", "Exemplo fictício de urgência");
+  await click("Enviar mensagem");
+  assert.match(JSON.stringify(root.toJSON()), /Ligar para o SAMU 192/);
+  assert.equal(
+    root.root
+      .findAllByType(Button)
+      .some((b) => b.props.children === "Agendar com esta pré-triagem"),
+    false,
+  );
+  await close();
 });
 
 test("retorno ao aplicativo remove lembretes de consulta realizada sem abrir agendamento", async () => {
