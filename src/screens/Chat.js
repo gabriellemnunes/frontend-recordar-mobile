@@ -14,7 +14,7 @@ export default function Chat({ api, navigation }) {
     [consent, setConsent] = useState(false);
   const endpoint = process.env.EXPO_PUBLIC_CHAT_PATH?.trim() || "/chat";
   return (
-    <Page title="Assistente Recordar">
+    <Page title="Assistente Recordar" automaticallyAdjustKeyboardInsets>
       <Txt>
         Conte como você está se sentindo. O assistente não substitui uma
         avaliação médica.
@@ -57,6 +57,8 @@ export default function Chat({ api, navigation }) {
         value={text}
         onChangeText={setText}
         multiline
+        numberOfLines={2}
+        editable={!a.busy}
       />
       <Button
         disabled={a.busy || !text.trim() || !consent || !!completedTriage}

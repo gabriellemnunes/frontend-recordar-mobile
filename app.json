@@ -20,6 +20,7 @@
     ],
     "android": {
       "package": "com.recordar.mobile",
+      "softwareKeyboardLayoutMode": "resize",
       "permissions": ["POST_NOTIFICATIONS"]
     },
     "ios": {

@@ -502,8 +502,11 @@ export function Card({ children, style, ...props }) {
     </View>
   );
 }
+export const PageEdgesContext = createContext(["top", "bottom", "left", "right"]);
+
 export function Page({ title, children, readingKey = title, ...props }) {
   const t = useContext(ThemeContext);
+  const edges = useContext(PageEdgesContext);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const gradientId = `background-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const readable = useRef(new Map());
@@ -513,7 +516,7 @@ export function Page({ title, children, readingKey = title, ...props }) {
   }, []);
   return (
     <SafeAreaView
-      edges={["left", "right"]}
+      edges={edges}
       style={{ flex: 1, backgroundColor: t.background }}
     >
       <View

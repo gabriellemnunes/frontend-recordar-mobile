@@ -20,6 +20,7 @@ import {
   Button,
   Card,
   Page,
+  PageEdgesContext,
   Txt,
   stopReading,
 } from "./src/components/ui";
@@ -40,7 +41,18 @@ import {
 const Stack = createNativeStackNavigator(),
   Tabs = createBottomTabNavigator(),
   Services = createContext(null);
-function Screen({ kind, ...props }) {
+const TAB_PAGE_EDGES = ["top", "left", "right"];
+const STACK_PAGE_EDGES = ["bottom", "left", "right"];
+
+function Screen({ stack = false, ...props }) {
+  return (
+    <PageEdgesContext.Provider value={stack ? STACK_PAGE_EDGES : TAB_PAGE_EDGES}>
+      <ScreenContent {...props} />
+    </PageEdgesContext.Provider>
+  );
+}
+
+function ScreenContent({ kind, ...props }) {
   const x = useContext(Services);
   const shared = { ...x, ...props, user: x.session.user };
   if (kind === "home") return <Home {...shared} />;
@@ -309,7 +321,7 @@ export default function App() {
                   )
                   .map(([name, kind]) => (
                     <Stack.Screen key={name} name={name}>
-                      {(p) => <Screen {...p} kind={kind} />}
+                      {(p) => <Screen {...p} kind={kind} stack />}
                     </Stack.Screen>
                   ))}
               </Stack.Navigator>
