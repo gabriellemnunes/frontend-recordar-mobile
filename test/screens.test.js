@@ -204,9 +204,22 @@ test("agenda atualiza a data digitada e oculta prescrições fora do período", 
   const api = async (path) => {
     paths.push(path);
     if (path === "/consultas") return [];
-    return [{ id: "r1", nome_remedio: "Exemplo", data_inicio: "2026-11-23", data_fim: "2026-11-26" }];
+    return [
+      {
+        id: "r1",
+        nome_remedio: "Exemplo",
+        data_inicio: "2026-11-23",
+        data_fim: "2026-11-26",
+      },
+    ];
   };
-  await mount(React.createElement(Medications, { api, daily: true, user: { tipo: "paciente" } }));
+  await mount(
+    React.createElement(Medications, {
+      api,
+      daily: true,
+      user: { tipo: "paciente" },
+    }),
+  );
   await fill("Dia (AAAA-MM-DD)", "2026-11-26");
   await click("Ver dia");
   assert.ok(paths.includes("/remedios?dia=2026-11-26"));
@@ -218,13 +231,15 @@ test("agenda atualiza a data digitada e oculta prescrições fora do período", 
   assert.doesNotMatch(JSON.stringify(root.toJSON()), /Exemplo/);
   await close();
 });
-test("chat aguarda consentimento e oferece agendamento direto", async () => {
+test("chat confirma IA no primeiro envio e oferece agendamento direto", async () => {
   delete process.env.EXPO_PUBLIC_CHAT_PATH;
   const routes = [];
+  const calls = [];
   await mount(
     React.createElement(Chat, {
-      api: () => {
-        throw Error("Não deve chamar API");
+      api: async (path, options) => {
+        calls.push({ path, ...options });
+        return { resposta: "Como posso ajudar?", id_conversa: "c1" };
       },
       navigation: { navigate: (...args) => routes.push(args) },
     }),
@@ -233,7 +248,24 @@ test("chat aguarda consentimento e oferece agendamento direto", async () => {
   const send = root.root
     .findAllByType(Button)
     .find((b) => b.props.children === "Enviar mensagem");
-  assert.equal(send.props.disabled, true);
+  assert.equal(send.props.disabled, false);
+  assert.match(JSON.stringify(root.toJSON()), /Ao enviar a primeira mensagem/);
+  assert.equal(calls.length, 0);
+  assert.equal(
+    root.root
+      .findAllByType(Button)
+      .some((b) => b.props.children === "Iniciar pré-triagem"),
+    false,
+  );
+  await click("Enviar mensagem");
+  assert.equal(calls[0].body.consentimento_ia, true);
+  assert.equal(calls[0].body.mensagem, "Exemplo fictício");
+  assert.doesNotMatch(
+    JSON.stringify(root.toJSON()),
+    /Ao enviar a primeira mensagem/,
+  );
+  await click("Nova conversa");
+  assert.match(JSON.stringify(root.toJSON()), /Ao enviar a primeira mensagem/);
   await click("Ver pré-triagens e agendar");
   assert.deepEqual(routes, [
     [
@@ -435,7 +467,6 @@ test("chat concluido encaminha id persistido para a aba dentro da Stack", async 
         navigation: { navigate: (...args) => routes.push(args) },
       }),
     );
-    await click("Iniciar pré-triagem");
     await fill("Sua mensagem", "Mensagem ficticia");
     await click("Enviar mensagem");
     await click("Agendar com esta pré-triagem");
@@ -464,7 +495,6 @@ test("chat urgente mostra contato de emergencia sem encaminhar agendamento", asy
       },
     }),
   );
-  await click("Iniciar pré-triagem");
   await fill("Sua mensagem", "Exemplo fictício de urgência");
   await click("Enviar mensagem");
   assert.match(JSON.stringify(root.toJSON()), /Ligar para o SAMU 192/);
@@ -712,12 +742,20 @@ test("acesso administrativo fica na área da equipe e volta ao tipo paciente ao 
 
 test("logout exige confirmação e pode ser cancelado", async () => {
   let exits = 0;
-  await mount(React.createElement(Profile, {
-    api: async () => ({ id: "1", tipo: "administrador", nome_administrador: "Teste" }),
-    user: { id: "1", tipo: "administrador" },
-    updateUser: async () => {},
-    logout: async () => { exits++; },
-  }));
+  await mount(
+    React.createElement(Profile, {
+      api: async () => ({
+        id: "1",
+        tipo: "administrador",
+        nome_administrador: "Teste",
+      }),
+      user: { id: "1", tipo: "administrador" },
+      updateUser: async () => {},
+      logout: async () => {
+        exits++;
+      },
+    }),
+  );
   await click("Sair da conta");
   assert.equal(exits, 0);
   await click("Cancelar");

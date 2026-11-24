@@ -23,16 +23,6 @@ export default function Chat({ api, navigation, draft }) {
         Conte como você está se sentindo. O assistente não substitui uma
         avaliação médica.
       </Txt>
-      {!consent && (
-        <Card>
-          <Txt>
-            O assistente usa suas mensagens para organizar uma pré-triagem e
-            sugerir especialidades. O resultado fica salvo no seu perfil. Não
-            informe senhas ou documentos.
-          </Txt>
-          <Button onPress={() => setConsent(true)}>Iniciar pré-triagem</Button>
-        </Card>
-      )}
       {urgent && (
         <Card>
           <Txt title accessibilityRole="alert">
@@ -64,20 +54,28 @@ export default function Chat({ api, navigation, draft }) {
         numberOfLines={2}
         editable={!a.busy}
       />
+      {!consent && (
+        <Txt>
+          Ao enviar a primeira mensagem, você concorda com o uso de IA na
+          pré-triagem. O resultado fica salvo no seu perfil. Não informe senhas
+          ou documentos.
+        </Txt>
+      )}
       <Button
-        disabled={a.busy || !text.trim() || !consent || !!completedTriage}
+        disabled={a.busy || !text.trim() || !!completedTriage}
         onPress={() =>
           a.run(async () => {
             if (!endpoint?.startsWith("/") || endpoint.startsWith("//"))
               throw new Error(
                 "O serviço de conversa está configurado incorretamente.",
               );
+            setConsent(true);
             const result = await api(endpoint, {
               method: "POST",
               body: {
                 mensagem: text.trim(),
                 id_conversa: conversation,
-                consentimento_ia: consent,
+                consentimento_ia: true,
               },
             }).catch((error) => {
               if (error.status >= 500)
@@ -119,6 +117,7 @@ export default function Chat({ api, navigation, draft }) {
           setConversation(null);
           setCompletedTriage(null);
           setUrgent(false);
+          setConsent(false);
         }}
       >
         Nova conversa
