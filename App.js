@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { ActivityIndicator, AppState, StatusBar } from "react-native";
@@ -64,7 +65,7 @@ function ScreenContent({ kind, ...props }) {
   if (kind === "patients") return <Patients {...shared} />;
   if (kind === "create") return <CreateConsultation {...shared} />;
   if (kind === "attendance") return <Attendance {...shared} />;
-  if (kind === "chat") return <Chat {...shared} />;
+  if (kind === "chat") return <Chat {...shared} draft={x.chatDraft} />;
   if (kind === "history") return <Consultations {...shared} history />;
   if (kind === "consultations") return <Consultations {...shared} />;
   return <AdminResource {...shared} resource={kind} />;
@@ -178,14 +179,23 @@ export default function App() {
     [prefs, setPrefs] = useState({ large: false, light: false }),
     [accessRole, setAccessRole] = useState("paciente"),
     [startupError, setStartupError] = useState("");
-  const logout = useCallback(async () => {
+  const chatDraft = useRef({ current: "" });
+  const closeSession = useCallback(async () => {
     await clearReminders().catch(() => {});
-    await storage.remove("recordar_session");
+    await storage.remove("recordar_session").catch(() => {});
     setSession(null);
   }, []);
+  const logout = useCallback(async () => {
+    chatDraft.current = { current: "" };
+    await closeSession();
+  }, [closeSession]);
+  const expireSession = useCallback(async () => {
+    setStartupError("Sua sessão expirou. Entre novamente para continuar.");
+    await closeSession();
+  }, [closeSession]);
   const api = useMemo(
-    () => createApi(process.env.EXPO_PUBLIC_API_URL, session?.token, logout),
-    [session?.token, logout],
+    () => createApi(process.env.EXPO_PUBLIC_API_URL, session?.token, expireSession),
+    [session?.token, expireSession],
   );
   useEffect(() => {
     (async () => {
@@ -213,6 +223,10 @@ export default function App() {
       }
     })();
   }, []);
+  const draftOwner = useRef(null);
+  useEffect(() => {
+    if (session) draftOwner.current = session.user.id;
+  }, [session]);
   const login = async (result) => {
     const next = { token: result.token, user: result.user };
     await storage.set(
@@ -222,6 +236,9 @@ export default function App() {
         user: { id: next.user.id, tipo: next.user.tipo },
       }),
     );
+    if (draftOwner.current !== next.user.id) {
+      chatDraft.current = { current: "" };
+    }
     setSession(next);
     setStartupError("");
   };
@@ -262,14 +279,22 @@ export default function App() {
             <ActivityIndicator accessibilityLabel="Carregando sessão" />
           </Page>
         ) : !session ? (
-          <>
-            <Auth api={api} onLogin={login} onRoleChange={setAccessRole} />
-            {!!startupError && (
-              <Txt accessibilityRole="alert">{startupError}</Txt>
-            )}
-          </>
+          <Auth
+            api={api}
+            onLogin={login}
+            onRoleChange={setAccessRole}
+            sessionMessage={startupError}
+          />
         ) : (
-          <Services.Provider value={{ session, api, logout, updateUser }}>
+          <Services.Provider
+            value={{
+              session,
+              api,
+              logout,
+              updateUser,
+              chatDraft: chatDraft.current,
+            }}
+          >
             <SessionReminders session={session} api={api} />
             <MedicationReminders session={session} api={api} />
             <NavigationContainer

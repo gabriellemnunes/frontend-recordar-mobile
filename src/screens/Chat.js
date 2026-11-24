@@ -4,14 +4,18 @@ import { Button, Card, Field, Page, Txt, useAction } from "../components/ui";
 import { openBooking } from "../bookingNavigation";
 
 // O modelo roda no backend; nenhuma chave ou endereço da IA entra no APK.
-export default function Chat({ api, navigation }) {
+export default function Chat({ api, navigation, draft }) {
   const a = useAction(),
-    [text, setText] = useState(""),
+    [text, setText] = useState(() => draft?.current || ""),
     [messages, setMessages] = useState([]),
     [conversation, setConversation] = useState(null),
     [completedTriage, setCompletedTriage] = useState(null),
     [urgent, setUrgent] = useState(false),
     [consent, setConsent] = useState(false);
+  function updateDraft(value) {
+    if (draft) draft.current = value;
+    setText(value);
+  }
   const endpoint = process.env.EXPO_PUBLIC_CHAT_PATH?.trim() || "/chat";
   return (
     <Page title="Assistente Recordar" automaticallyAdjustKeyboardInsets>
@@ -55,7 +59,7 @@ export default function Chat({ api, navigation }) {
       <Field
         label="Sua mensagem"
         value={text}
-        onChangeText={setText}
+        onChangeText={updateDraft}
         multiline
         numberOfLines={2}
         editable={!a.busy}
@@ -75,9 +79,17 @@ export default function Chat({ api, navigation }) {
                 id_conversa: conversation,
                 consentimento_ia: consent,
               },
+            }).catch((error) => {
+              if (error.status >= 500)
+                throw new Error(
+                  "O assistente está indisponível no momento. Tente enviar sua mensagem novamente mais tarde.",
+                );
+              throw error;
             });
             if (typeof result.resposta !== "string")
-              throw new Error("O serviço retornou uma resposta incompatível.");
+              throw new Error(
+                "O assistente não conseguiu responder. Tente enviar sua mensagem novamente.",
+              );
             setMessages((old) => [
               ...old,
               { role: "user", text: text.trim() },
@@ -87,7 +99,7 @@ export default function Chat({ api, navigation }) {
             setUrgent(!!result.urgencia);
             if (typeof result.id_pre_triagem === "string")
               setCompletedTriage(result.id_pre_triagem);
-            setText("");
+            updateDraft("");
           })
         }
       >

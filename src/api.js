@@ -32,7 +32,10 @@ function createApi(baseUrl, token, onUnauthorized = () => {}, fetcher = fetch) {
         throw new Error(
           "O servidor demorou para responder. Confira sua conexão.",
         );
-      if (error instanceof TypeError)
+      if (
+        error instanceof TypeError ||
+        /^(fetch failed|network request failed)$/i.test(error.message || "")
+      )
         throw new Error(
           "Não foi possível conectar ao servidor. Confira sua conexão e tente novamente.",
         );

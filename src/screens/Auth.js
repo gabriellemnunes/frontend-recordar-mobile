@@ -10,7 +10,7 @@ import {
   ThemeContext,
   useAction,
 } from "../components/ui";
-export default function Auth({ api, onLogin, onRoleChange }) {
+export default function Auth({ api, onLogin, onRoleChange, sessionMessage }) {
   const inheritedTheme = useContext(ThemeContext);
   const theme = inheritedTheme.light
     ? {
@@ -188,6 +188,9 @@ export default function Auth({ api, onLogin, onRoleChange }) {
                   : "Salvar senha"
             }
           />
+          {!!sessionMessage && (
+            <Txt accessibilityRole="alert">{sessionMessage}</Txt>
+          )}
           {a.feedback}
           {page === "login" ? (
             <>
