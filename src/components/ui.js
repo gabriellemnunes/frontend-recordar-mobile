@@ -630,12 +630,15 @@ export function useAction() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const lock = useRef(false);
+  function clearFeedback() {
+    setError("");
+    setNotice("");
+  }
   async function run(action) {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
-    setError("");
-    setNotice("");
+    clearFeedback();
     try {
       return await action();
     } catch (e) {
@@ -649,6 +652,7 @@ export function useAction() {
     busy,
     run,
     setNotice,
+    clearFeedback,
     feedback: (
       <>
         {busy && <ActivityIndicator accessibilityLabel="Aguarde" />}

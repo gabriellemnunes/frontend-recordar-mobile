@@ -235,10 +235,13 @@ test("chat confirma IA no primeiro envio e oferece agendamento direto", async ()
   delete process.env.EXPO_PUBLIC_CHAT_PATH;
   const routes = [];
   const calls = [];
+  const draft = { current: "" };
   await mount(
     React.createElement(Chat, {
+      draft,
       api: async (path, options) => {
         calls.push({ path, ...options });
+        if (calls.length > 1) throw Object.assign(new Error("falha"), { status: 503 });
         return { resposta: "Como posso ajudar?", id_conversa: "c1" };
       },
       navigation: { navigate: (...args) => routes.push(args) },
@@ -264,7 +267,13 @@ test("chat confirma IA no primeiro envio e oferece agendamento direto", async ()
     JSON.stringify(root.toJSON()),
     /Ao enviar a primeira mensagem/,
   );
+  await fill("Sua mensagem", "Rascunho da conversa anterior");
+  await click("Enviar mensagem");
+  assert.match(JSON.stringify(root.toJSON()), /indisponível no momento/);
+  assert.equal(draft.current, "Rascunho da conversa anterior");
   await click("Nova conversa");
+  assert.equal(draft.current, "");
+  assert.doesNotMatch(JSON.stringify(root.toJSON()), /indisponível no momento|Rascunho da conversa anterior/);
   assert.match(JSON.stringify(root.toJSON()), /Ao enviar a primeira mensagem/);
   await click("Ver pré-triagens e agendar");
   assert.deepEqual(routes, [

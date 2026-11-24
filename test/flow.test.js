@@ -51,6 +51,19 @@ test("falha de rede informa como tentar novamente", async () => {
   );
   await assert.rejects(api("/chat"), /Confira sua conexão e tente novamente/);
 });
+test("resposta interrompida ou JSON inválido não viram sucesso", async () => {
+  for (const [error, message] of [
+    [new DOMException("interrompida", "AbortError"), /demorou para responder/],
+    [new SyntaxError("JSON inválido"), /enviou uma resposta inválida/],
+  ]) {
+    const api = createApi("https://example.com/api", null, undefined, async () => ({
+      ok: true,
+      status: 200,
+      json: async () => { throw error; },
+    }));
+    await assert.rejects(api("/auth/login"), message);
+  }
+});
 test("filtro recomendado inclui apenas parâmetros preenchidos", () => {
   assert.equal(
     availablePath({ triageId: "abc", date: "2099-12-09" }),

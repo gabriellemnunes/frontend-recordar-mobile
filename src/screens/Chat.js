@@ -118,6 +118,8 @@ export default function Chat({ api, navigation, draft }) {
           setCompletedTriage(null);
           setUrgent(false);
           setConsent(false);
+          updateDraft("");
+          a.clearFeedback();
         }}
       >
         Nova conversa

@@ -17,7 +17,14 @@ function createApi(baseUrl, token, onUnauthorized = () => {}, fetcher = fetch) {
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      const data = await response.json().catch(() => ({}));
+      let data;
+      try {
+        data = await response.json();
+      } catch (error) {
+        if (error.name === "AbortError" || controller.signal.aborted) throw error;
+        if (response.ok) throw new Error("O servidor enviou uma resposta inválida. Tente novamente.");
+        data = {};
+      }
       if (response.status === 401 && token) await onUnauthorized();
       if (!response.ok)
         throw Object.assign(
@@ -28,7 +35,7 @@ function createApi(baseUrl, token, onUnauthorized = () => {}, fetcher = fetch) {
         );
       return data;
     } catch (error) {
-      if (error.name === "AbortError")
+      if (error.name === "AbortError" || controller.signal.aborted)
         throw new Error(
           "O servidor demorou para responder. Confira sua conexão.",
         );
